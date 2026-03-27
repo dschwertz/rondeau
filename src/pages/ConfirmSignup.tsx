@@ -1,6 +1,6 @@
 import { useState, type SubmitEvent } from "react"
 import { useLocation } from "wouter"
-import { confirmSignUp } from "../authService"
+// import { confirmSignUp } from "../authService"
 
 export default function ConfirmSignup() {
   const [_, navigate] = useLocation()
@@ -10,7 +10,7 @@ export default function ConfirmSignup() {
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
     try {
-      await confirmSignUp(email, confirmationCode)
+      // await confirmSignUp(email, confirmationCode)
       alert("Account confirmed successfully!\nSign in on next page.")
       navigate("/")
     } catch (error) {

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode dev",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -12,10 +12,10 @@
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.1000.0",
     "@tailwindcss/vite": "^4.1.18",
-    "oidc-client-ts": "^3.4.1",
+    "oidc-client-ts": "^3.5.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-oidc-context": "^3.3.0",
+    "react-oidc-context": "^3.3.1",
     "tailwindcss": "^4.1.18",
     "wouter": "^3.9.0"
   },

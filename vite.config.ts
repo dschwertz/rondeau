@@ -11,4 +11,13 @@ export default defineConfig({
     }),
     tailwindcss()
   ],
+  server: {
+    proxy: {
+      '/dev': {
+        target: 'https://rneeu4m1q5.execute-api.us-west-2.amazonaws.com',
+        changeOrigin: true,
+        secure: true,
+      }
+    }
+  }
 })

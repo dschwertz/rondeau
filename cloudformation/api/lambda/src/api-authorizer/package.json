@@ -1,0 +1,15 @@
+{
+  "name": "api-authorizer",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.mjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "aws-jwt-verify": "^5.1.1"
+  }
+}

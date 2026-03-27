@@ -1,0 +1,4 @@
+authCallbackRedirectLocation=http://localhost:5173/home
+authLogoutRedirectLocation=http://localhost:5173/login
+cognitoClientId=55h608590c61vab3bbpmfcjq6d
+redirectUri=http://localhost:5173/dev/auth/callback

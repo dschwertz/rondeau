@@ -1,80 +1,35 @@
-import {
-  CognitoIdentityProviderClient,
-  ConfirmSignUpCommand,
-  InitiateAuthCommand,
-  SignUpCommand,
-  type ConfirmSignUpCommandInput,
-  type InitiateAuthCommandInput,
-  type SignUpCommandInput
-} from "@aws-sdk/client-cognito-identity-provider"
-
-export const cognitoClient = new CognitoIdentityProviderClient({
-  region: import.meta.env.VITE_AWS_REGION
-})
-
-export async function signIn(username: string, password: string) {
-  const params: InitiateAuthCommandInput = {
-    AuthFlow: "USER_PASSWORD_AUTH",
-    ClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
-    AuthParameters: {
-      USERNAME: username,
-      PASSWORD: password
-    }
-  }
-
-  try {
-    const command = new InitiateAuthCommand(params)
-    const { AuthenticationResult } = await cognitoClient.send(command)
-
-    if (AuthenticationResult) {
-      sessionStorage.setItem("idToken", AuthenticationResult.IdToken || "")
-      sessionStorage.setItem("accessToken", AuthenticationResult.AccessToken || "")
-      sessionStorage.setItem("refreshToken", AuthenticationResult.RefreshToken || "")
-
-      return AuthenticationResult
-    }
-  } catch (error) {
-    console.error("Error signing in: ", error)
-    throw error
-  }
+async function generatePKCE() {
+  const verifier = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
+  const challenge = btoa(
+    String.fromCharCode(...new Uint8Array(
+      await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
+    ))
+  ).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  return { verifier, challenge }
 }
 
-export async function signUp(email: string, password: string) {
-  const params: SignUpCommandInput = {
-    ClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
-    Username: email,
-    Password: password,
-    UserAttributes: [
-      {
-        Name: "email",
-        Value: email,
-      },
-    ],
-  }
-  try {
-    const command = new SignUpCommand(params)
-    const response = await cognitoClient.send(command)
-    console.log("Sign up success: ", response)
-    return response
-  } catch (error) {
-    console.error("Error signing up: ", error)
-    throw error
-  }
-};
+export async function login() {
+  const { verifier, challenge } = await generatePKCE()
 
-export async function confirmSignUp(username: string, code: string) {
-  const params: ConfirmSignUpCommandInput = {
-    ClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
-    Username: username,
-    ConfirmationCode: code,
-  }
-  try {
-    const command = new ConfirmSignUpCommand(params)
-    await cognitoClient.send(command)
-    console.log("User confirmed successfully")
-    return true
-  } catch (error) {
-    console.error("Error confirming sign up: ", error)
-    throw error
-  }
-};
+  // https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html#sample-authorization-code-grant-with-pkce
+  window.location.href = `${import.meta.env.VITE_COGNITO_DOMAIN}/oauth2/authorize?` +
+    new URLSearchParams({
+      response_type: 'code',
+      client_id: import.meta.env.VITE_COGNITO_CLIENT_ID,
+      redirect_uri: import.meta.env.VITE_COGNITO_REDIRECT_URI,
+      state: verifier,
+      scope: 'email openid phone',
+      code_challenge_method: 'S256',
+      code_challenge: challenge,
+    })
+}
+
+export function logout() {
+  window.location.href = 'https://us-west-2uyfyacv0i.auth.us-west-2.amazoncognito.com/logout?' +
+    new URLSearchParams({
+      client_id: import.meta.env.VITE_COGNITO_CLIENT_ID,
+      logout_uri: import.meta.env.VITE_COGNITO_LOGOUT_URI,
+    })
+}
+
+
