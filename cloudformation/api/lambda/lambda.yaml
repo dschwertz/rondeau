@@ -2,18 +2,10 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Lambdas directly in service of the yeschef API Gateway.
 
 Parameters:
-  authCallbackRedirectLocation:
+  LambdaRole:
     Type: String
-    Description: ApiAuthCallback redirect location after token exchange.
-  authLogoutRedirectLocation:
+  LambdaSourceBucketName:
     Type: String
-    Description: ApiAuthLogout redirect location after Cognito logout.
-  cognitoClientId:
-    Type: String
-    Description: Cognito client ID.
-  redirectUri:
-    Type: String
-    Description: ApiAuthCallback redirect for Cognito authorize.
 
 Resources:
   ApiAuthCallback:
@@ -24,17 +16,12 @@ Resources:
         - arm64
       Runtime: nodejs24.x
       Handler: index.handler
-      Environment:
-        Variables:
-          APP_REDIRECT_LOCATION: !Ref authCallbackRedirectLocation
-          COGNITO_CLIENT_ID: !Ref cognitoClientId
-          REDIRECT_URI: !Ref redirectUri
       LoggingConfig:
         LogFormat: Text
         LogGroup: /aws/lambda/ApiAuthCallback
-      Role: arn:aws:iam::312695118281:role/LambdaBasicExecution
+      Role: !Ref LambdaRole
       Code:
-        S3Bucket: yeschef-lambda-source-0001
+        S3Bucket: !Ref LambdaSourceBucketName
         S3Key: api-auth-callback.zip
   ApiAuthLogout:
     Type: AWS::Lambda::Function
@@ -44,15 +31,12 @@ Resources:
         - arm64
       Runtime: nodejs24.x
       Handler: index.handler
-      Environment:
-        Variables:
-          APP_REDIRECT_LOCATION: !Ref authLogoutRedirectLocation
       LoggingConfig:
         LogFormat: Text
         LogGroup: /aws/lambda/ApiAuthLogout
-      Role: arn:aws:iam::312695118281:role/LambdaBasicExecution
+      Role: !Ref LambdaRole
       Code:
-        S3Bucket: yeschef-lambda-source-0001
+        S3Bucket: !Ref LambdaSourceBucketName
         S3Key: api-auth-logout.zip
   ApiAuthorizer:
     Type: AWS::Lambda::Function
@@ -65,9 +49,9 @@ Resources:
       LoggingConfig:
         LogFormat: Text
         LogGroup: /aws/lambda/ApiAuthorizer
-      Role: arn:aws:iam::312695118281:role/LambdaBasicExecution
+      Role: !Ref LambdaRole
       Code:
-        S3Bucket: yeschef-lambda-source-0001
+        S3Bucket: !Ref LambdaSourceBucketName
         S3Key: api-authorizer.zip
   ApiStatus:
     Type: AWS::Lambda::Function
@@ -80,7 +64,7 @@ Resources:
       LoggingConfig:
         LogFormat: Text
         LogGroup: /aws/lambda/ApiStatus
-      Role: arn:aws:iam::312695118281:role/LambdaBasicExecution
+      Role: !Ref LambdaRole
       Code:
-        S3Bucket: yeschef-lambda-source-0001
+        S3Bucket: !Ref LambdaSourceBucketName
         S3Key: api-status.zip

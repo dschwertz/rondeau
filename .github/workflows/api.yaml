@@ -43,3 +43,12 @@ jobs:
         run: |
           chmod +x ./cloudformation/api/lambda/lambdaUpload.sh
           ./cloudformation/api/lambda/lambdaUpload.sh
+
+      - name: Create Lambdas
+        run: |
+          aws cloudformation deploy \
+          --stack-name api-lambda \
+          --template-file ./cloudformation/api/lambda/lambda.yaml \
+          --parameter-overrides \
+            LambdaRole=${{ vars.API_LAMBDA_ROLE }} \
+            LambdaSourceBucketName=${{ vars.ENVIRONMENT }}-yeschef-lambda-source-0001
