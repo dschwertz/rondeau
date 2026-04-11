@@ -25,5 +25,7 @@ jobs:
       - name: Setup S3 bucket
         run: |
           aws cloudformation deploy \
+          --stack-name api-s3 \
           --template-file ./cloudformation/api/s3/s3.yaml \
-          --stack-name api-s3
+          --parameter-overrides \
+            LambdaSourceBucketName=${{ vars.ENVIRONMENT }}-yeschef-lambda-source-0001
