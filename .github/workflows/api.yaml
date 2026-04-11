@@ -30,9 +30,16 @@ jobs:
           --parameter-overrides \
             LambdaSourceBucketName=${{ vars.ENVIRONMENT }}-yeschef-lambda-source-0001
 
+      - name: Create IAM roles
+        run: |
+          aws cloudformation deploy \
+          --stack-name api-iam \
+          --capabilities CAPABILITY_NAMED_IAM \
+          --template-file ./cloudformation/api/iam/iam.yaml
+
       - name: Build and upload Lambda zip files
         env:
-          ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+          Environment: ${{ vars.ENVIRONMENT }}
         run: |
           chmod +x ./cloudformation/api/lambda/lambdaUpload.sh
           ./cloudformation/api/lambda/lambdaUpload.sh
