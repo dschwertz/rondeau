@@ -1,30 +1,7 @@
 import qs from 'qs'
 import axios from 'axios'
-import { SSMClient, GetParametersByPathCommand } from "@aws-sdk/client-ssm"
-
-const ssm = new SSMClient({})
-let config
-
-const getConfig = async () => {
-  if (config) return config
-
-  const response = await ssm.send(new GetParametersByPathCommand({
-    Path: "/",
-    WithDecryption: true
-  }))
-
-  config = Object.fromEntries(
-    response.Parameters.map(p => [p.Name.split("/").pop(), p.Value])
-  )
-
-  return config
-}
 
 export const handler = async (event) => {
-  console.log(event)
-
-  const { appBaseUrl, cognitoClientId } = await getConfig()
-
   const code = event.queryStringParameters?.code
   if (code == null) {
     return {
@@ -43,8 +20,8 @@ export const handler = async (event) => {
 
   const data = {
     grant_type: "authorization_code",
-    client_id: cognitoClientId,
-    redirect_uri: `${appBaseUrl}/api/auth/callback`,
+    client_id: process.env.COGNITO_CLIENT_ID,
+    redirect_uri: `${process.env.APP_BASE_URL}/api/auth/callback`,
     code: code,
     code_verifier: codeVerifier,
   }
@@ -65,7 +42,7 @@ export const handler = async (event) => {
     return {
       statusCode: 302,
       multiValueHeaders: {
-        Location: [`${appBaseUrl}`],
+        Location: [process.env.APP_BASE_URL],
         "Set-Cookie": [
           `access_token=${res.data.access_token}; Secure; HttpOnly; SameSite=Lax; Path=/`,
           `id_token=${res.data.id_token}; Secure; HttpOnly; SameSite=Lax; Path=/`,

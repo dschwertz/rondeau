@@ -24,7 +24,7 @@ Resources:
                 Action:
                   - ssm:GetParameter
                   - ssm:GetParametersByPath
-                Resource: arn:aws:ssm:us-west-2:765607524975:parameter/api/lambda/*
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*
 
 Outputs:
   LambdaExecutionRoleArn:

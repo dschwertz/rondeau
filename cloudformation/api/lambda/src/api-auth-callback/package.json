@@ -10,7 +10,6 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@aws-sdk/client-ssm": "^3.1029.0",
     "axios": "^1.13.6",
     "qs": "^6.15.0"
   }

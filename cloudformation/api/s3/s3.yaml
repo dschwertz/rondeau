@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Lambdas directly in service of the yeschef API Gateway.
+Description: Lambdas directly in service of the API Gateway.
 
 Parameters:
   LambdaSourceBucketName:

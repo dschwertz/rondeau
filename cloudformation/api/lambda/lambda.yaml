@@ -1,13 +1,14 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Lambdas directly in service of the yeschef API Gateway.
+Description: Lambdas directly in service of the API Gateway.
 
 Parameters:
-  LambdaRole:
+  AppBaseUrl:
     Type: String
   LambdaSourceBucketName:
     Type: String
 
 Resources:
+
   ApiAuthCallback:
     Type: AWS::Lambda::Function
     Properties:
@@ -19,10 +20,15 @@ Resources:
       LoggingConfig:
         LogFormat: Text
         LogGroup: /aws/lambda/ApiAuthCallback
-      Role: !Ref LambdaRole
+      Role: !ImportValue api-lambda-role-arn
+      Environment:
+        Variables:
+          COGNITO_CLIENT_ID: !ImportValue cognito-user-pool-client-id
+          APP_BASE_URL: !Ref AppBaseUrl
       Code:
         S3Bucket: !Ref LambdaSourceBucketName
         S3Key: api-auth-callback.zip
+
   ApiAuthLogout:
     Type: AWS::Lambda::Function
     Properties:
@@ -34,25 +40,14 @@ Resources:
       LoggingConfig:
         LogFormat: Text
         LogGroup: /aws/lambda/ApiAuthLogout
-      Role: !Ref LambdaRole
+      Role: !ImportValue api-lambda-role-arn
+      Environment:
+        Variables:
+          APP_BASE_URL: !Ref AppBaseUrl
       Code:
         S3Bucket: !Ref LambdaSourceBucketName
         S3Key: api-auth-logout.zip
-  ApiAuthorizer:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: ApiAuthorizer
-      Architectures:
-        - arm64
-      Runtime: nodejs24.x
-      Handler: index.handler
-      LoggingConfig:
-        LogFormat: Text
-        LogGroup: /aws/lambda/ApiAuthorizer
-      Role: !Ref LambdaRole
-      Code:
-        S3Bucket: !Ref LambdaSourceBucketName
-        S3Key: api-authorizer.zip
+
   ApiStatus:
     Type: AWS::Lambda::Function
     Properties:
@@ -64,7 +59,7 @@ Resources:
       LoggingConfig:
         LogFormat: Text
         LogGroup: /aws/lambda/ApiStatus
-      Role: !Ref LambdaRole
+      Role: !ImportValue api-lambda-role-arn
       Code:
         S3Bucket: !Ref LambdaSourceBucketName
         S3Key: api-status.zip

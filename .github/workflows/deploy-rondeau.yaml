@@ -1,4 +1,4 @@
-name: api
+name: deploy-rondeau
 on:
   push:
     branches:
@@ -8,7 +8,32 @@ permissions:
   id-token: write   # This is required for requesting the JWT
   contents: read    # This is required for actions/checkout
 jobs:
+
+  deploy-auth:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.0
+        with:
+          audience: sts.amazonaws.com
+          aws-region: us-west-2
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+
+      - name: Setup Cognito
+        run: |
+          aws cloudformation deploy \
+          --stack-name auth-cognito \
+          --template-file ./cloudformation/auth/cognito/cognito.yaml \
+          --parameter-overrides \
+            CallbackUrl=${{ vars.COGNITO_CALLBACK_URL }} \
+            LogoutUrl=${{ vars.COGNITO_LOGOUT_URL }}
+
   deploy-api:
+    needs: deploy-auth
     runs-on: ubuntu-latest
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
@@ -28,7 +53,7 @@ jobs:
           --stack-name api-s3 \
           --template-file ./cloudformation/api/s3/s3.yaml \
           --parameter-overrides \
-            LambdaSourceBucketName=${{ vars.ENVIRONMENT }}-yeschef-lambda-source-0001
+            LambdaSourceBucketName=${{ vars.ENVIRONMENT }}-lambda-source-0001
 
       - name: Create IAM roles
         run: |
@@ -50,5 +75,5 @@ jobs:
           --stack-name api-lambda \
           --template-file ./cloudformation/api/lambda/lambda.yaml \
           --parameter-overrides \
-            LambdaRole=${{ vars.API_LAMBDA_ROLE }} \
-            LambdaSourceBucketName=${{ vars.ENVIRONMENT }}-yeschef-lambda-source-0001
+            AppBaseUrl=${{ vars.APP_BASE_URL }} \
+            LambdaSourceBucketName=${{ vars.ENVIRONMENT }}-lambda-source-0001

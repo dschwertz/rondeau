@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Cognito service configuration
+
+Parameters:
+  CallbackUrl:
+    Type: String
+  LogoutUrl:
+    Type: String
+
+Resources:
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AliasAttributes:
+        - email
+      DeletionProtection: ACTIVE
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      Schema:
+        - AttributeDataType: String
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Name: email
+          Required: true
+          StringAttributeConstraints:
+            MaxLength: "99"
+            MinLength: "1"
+      UserPoolName: !Sub rondeau-userpool-${AWS::AccountId}
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      CallbackURLs:
+        - !Ref CallbackUrl
+      ClientName: !Sub rondeau-app-client-${AWS::AccountId}
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      LogoutURLs:
+        - !Ref LogoutUrl
+      SupportedIdentityProviders:
+        - COGNITO
+      UserPoolId: !Ref UserPool
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub rondeau-userpool-domain-${AWS::AccountId}
+      UserPoolId: !Ref UserPool
+
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+    Export:
+      Name: cognito-user-pool-id
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+    Export:
+      Name: cognito-user-pool-client-id
