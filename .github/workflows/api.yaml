@@ -29,3 +29,10 @@ jobs:
           --template-file ./cloudformation/api/s3/s3.yaml \
           --parameter-overrides \
             LambdaSourceBucketName=${{ vars.ENVIRONMENT }}-yeschef-lambda-source-0001
+
+      - name: Build and upload Lambda zip files
+        env:
+          ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+        run: |
+          chmod +x ./cloudformation/api/lambda/lambdaUpload.sh
+          ./cloudformation/api/lambda/lambdaUpload.sh
