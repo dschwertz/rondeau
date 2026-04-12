@@ -47,6 +47,9 @@ jobs:
           aws-region: us-west-2
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
 
+      - name: Setup SAM
+        run: pip install aws-sam-cli
+
       - name: Create IAM roles
         run: |
           aws cloudformation deploy \
@@ -62,39 +65,20 @@ jobs:
           --parameter-overrides \
             LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
 
-      - name: Build and upload Lambda zip files
-        env:
-          LAMBDA_SOURCE_BUCKET_NAME: ${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
+      - name: Create APIGateway and Lambda functions
         run: |
-          chmod +x ./cloudformation/api/lambda/lambdaUpload.sh
-          ./cloudformation/api/lambda/lambdaUpload.sh
+          aws s3 cp ./cloudformation/api/serverless/openapi.yaml s3://${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
 
-      - name: Create Lambdas
-        run: |
-          aws cloudformation deploy \
-          --stack-name api-lambda \
-          --template-file ./cloudformation/api/lambda/lambda.yaml \
-          --parameter-overrides \
-            AppBaseUrl=${{ vars.APP_BASE_URL }} \
-            LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
+          sam build --template ./cloudformation/api/serverless/serverless.yaml
 
-      - name: Upload OpenAPI specification for APIGateway
-        run: |
-          aws s3 cp ./cloudformation/api/apigateway/openapi.yaml s3://${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
-
-      - name: Create APIGateway and resources
-        run: |
-          SPEC_HASH=$(sha256sum ./cloudformation/api/apigateway/openapi.yaml | cut -d' ' -f1)
-
-          aws s3 cp ./cloudformation/api/apigateway/openapi.yaml s3://${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}/openapi.yaml
-
-          aws cloudformation deploy \
-          --stack-name api-apigateway \
-          --template-file ./cloudformation/api/apigateway/apigateway.yaml \
-          --parameter-overrides \
-            LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }} \
-            DeploymentId=$SPEC_HASH \
-            Stage=${{ vars.APT_GATEWAY_STAGE }}
+          sam deploy \
+            --stack-name api-serverless \
+            --s3-bucket ${{ vars.LAMBDA_SOURCE_BUCKET_NAME }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              "AppBaseUrl=${{ vars.APP_BASE_URL }} \
+              LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}"
 
   deploy-frontend:
     needs: deploy-api
@@ -114,7 +98,7 @@ jobs:
       - name: Setup S3 bucket
         run: |
           aws cloudformation deploy \
-          --stack-name api-s3 \
+          --stack-name frontend-s3 \
           --template-file ./cloudformation/frontend/s3/s3.yaml \
           --parameter-overrides \
             FrontendAssetsBucketName=${{ vars.FRONTEND_ASSETS_BUCKET_NAME }}
