@@ -61,6 +61,7 @@ Resources:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
       Domain: !Sub rondeau-userpool-domain-${AWS::AccountId}
+      ManagedLoginVersion: 2
       UserPoolId: !Ref UserPool
 
 Outputs:
