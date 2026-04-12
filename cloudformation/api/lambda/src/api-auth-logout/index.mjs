@@ -4,8 +4,8 @@ export const handler = async (event) => {
     multiValueHeaders: {
       Location: [`${process.env.APP_BASE_URL}/login`],
       "Set-Cookie": [
-        `accessToken=; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=-1`,
-        `idToken=; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=-1`
+        `access_token=; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=-1`,
+        `id_token=; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=-1`
       ]
     }
   }

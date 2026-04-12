@@ -28,7 +28,7 @@ export const handler = async (event) => {
 
   try {
     const res = await axios.post(
-      "https://us-west-2uyfyacv0i.auth.us-west-2.amazoncognito.com/oauth2/token",
+      `${process.env.COGNITO_DOMAIN}/oauth2/token`,
       qs.stringify(data),
       {
         headers: {

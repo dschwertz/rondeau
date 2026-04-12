@@ -3,7 +3,7 @@
 set -e
 
 LAMBDA_SRC_DIR="./cloudformation/api/lambda/src"
-S3_BUCKET="${Environment}-lambda-source-0001"
+S3_BUCKET="${LAMBDA_SOURCE_BUCKET_NAME}"
 
 echo "Building and zipping Lambda functions..."
 

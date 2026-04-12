@@ -1,0 +1,86 @@
+openapi: 3.0.4
+info:
+  title: Rondeau API
+  description: Primary interface for Rondeau app functions.
+  version: 0.1
+
+servers:
+  - url: https://rondeau.dillonschwertz.dev/v0
+    description: Main
+  - url: http://localhost:5173/v0
+    description: Local
+
+paths:
+
+  /auth/callback:
+    get:
+      summary: Callback function for Cognito authentication.
+      description: >
+        This resource triggers the api-auth-callback Lambda which exchanges the code sent by Cognito for id, access, and refresh tokens which are stored in cookies.
+      responses:
+        "302":
+          description: Successful token exchange
+          headers:
+            location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+        "400":
+          description: Missing parameters for token exchange
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  body:
+                    type: string
+        "500":
+          description: Failed token exchange
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  body:
+                    type: string
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ApiAuthCallback/invocations
+
+
+  /auth/logout:
+    get:
+      summary: Logout function for Cognito authentication.
+      description: >
+        This resource triggers the api-auth-logout Lambda which invalidates existing tokens and clears the id, access, and refresh tokens from browser cookies.
+      responses:
+        "302":
+          description: Successful logout
+          headers:
+            location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ApiAuthLogout/invocations

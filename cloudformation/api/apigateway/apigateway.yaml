@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: API Gateway
+
+Parameters:
+  LambdaSourceBucketName:
+    Type: String
+
+Resources:
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Body:
+        Fn::Transform:
+          Name: AWS::Include
+          Parameters:
+            Location: !Sub s3://${LambdaSourceBucketName}/openapi.yaml
+      Name: rondeau-api

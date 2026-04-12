@@ -47,14 +47,6 @@ jobs:
           aws-region: us-west-2
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
 
-      - name: Setup S3 bucket
-        run: |
-          aws cloudformation deploy \
-          --stack-name api-s3 \
-          --template-file ./cloudformation/api/s3/s3.yaml \
-          --parameter-overrides \
-            LambdaSourceBucketName=${{ vars.ENVIRONMENT }}-lambda-source-0001
-
       - name: Create IAM roles
         run: |
           aws cloudformation deploy \
@@ -62,9 +54,17 @@ jobs:
           --capabilities CAPABILITY_NAMED_IAM \
           --template-file ./cloudformation/api/iam/iam.yaml
 
+      - name: Setup S3 bucket
+        run: |
+          aws cloudformation deploy \
+          --stack-name api-s3 \
+          --template-file ./cloudformation/api/s3/s3.yaml \
+          --parameter-overrides \
+            LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
+
       - name: Build and upload Lambda zip files
         env:
-          Environment: ${{ vars.ENVIRONMENT }}
+          LAMBDA_SOURCE_BUCKET_NAME: ${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
         run: |
           chmod +x ./cloudformation/api/lambda/lambdaUpload.sh
           ./cloudformation/api/lambda/lambdaUpload.sh
@@ -76,4 +76,16 @@ jobs:
           --template-file ./cloudformation/api/lambda/lambda.yaml \
           --parameter-overrides \
             AppBaseUrl=${{ vars.APP_BASE_URL }} \
-            LambdaSourceBucketName=${{ vars.ENVIRONMENT }}-lambda-source-0001
+            LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
+
+      - name: Upload OpenAPI specification for APIGateway
+        run: |
+          aws s3 cp ./cloudformation/api/apigateway/openapi.yaml s3://${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
+
+      - name: Create APIGateway and resources
+        run: |
+          aws cloudformation deploy \
+          --stack-name api-apigateway \
+          --template-file ./cloudformation/api/apigateway/apigateway.yaml \
+          --parameter-overrides \
+            LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}

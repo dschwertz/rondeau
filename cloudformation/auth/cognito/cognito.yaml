@@ -72,3 +72,7 @@ Outputs:
     Value: !Ref UserPoolClient
     Export:
       Name: cognito-user-pool-client-id
+  UserPoolDomain:
+    Value: !Ref UserPoolDomain
+    Export:
+      Name: cognito-user-pool-domain

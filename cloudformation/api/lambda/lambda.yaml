@@ -24,6 +24,7 @@ Resources:
       Environment:
         Variables:
           COGNITO_CLIENT_ID: !ImportValue cognito-user-pool-client-id
+          COGNITO_DOMAIN: !ImportValue cognito-user-pool-domain
           APP_BASE_URL: !Ref AppBaseUrl
       Code:
         S3Bucket: !Ref LambdaSourceBucketName
