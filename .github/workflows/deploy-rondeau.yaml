@@ -88,4 +88,6 @@ jobs:
           --stack-name api-apigateway \
           --template-file ./cloudformation/api/apigateway/apigateway.yaml \
           --parameter-overrides \
-            LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
+            LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }} \
+            DeploymentId=$(date +%s) \
+            Stage=${{ vars.APT_GATEWAY_STAGE }}

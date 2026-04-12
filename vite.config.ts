@@ -13,7 +13,7 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/dev': {
+      '/v0': {
         target: 'https://rneeu4m1q5.execute-api.us-west-2.amazonaws.com',
         changeOrigin: true,
         secure: true,

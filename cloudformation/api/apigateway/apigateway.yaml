@@ -4,6 +4,10 @@ Description: API Gateway
 Parameters:
   LambdaSourceBucketName:
     Type: String
+  DeploymentId:
+    Type: String
+  Stage:
+    Type: String
 
 Resources:
   ApiGateway:
@@ -15,3 +19,16 @@ Resources:
           Parameters:
             Location: !Sub s3://${LambdaSourceBucketName}/openapi.yaml
       Name: rondeau-api
+
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGateway
+      Description: !Ref DeploymentId
+
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref ApiGateway
+      DeploymentId: !Ref ApiGatewayDeployment
+      StageName: v0
