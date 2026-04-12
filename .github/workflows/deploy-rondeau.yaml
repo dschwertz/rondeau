@@ -91,3 +91,27 @@ jobs:
             LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }} \
             DeploymentId=$(date +%s) \
             Stage=${{ vars.APT_GATEWAY_STAGE }}
+
+  deploy-frontend:
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.0
+        with:
+          audience: sts.amazonaws.com
+          aws-region: us-west-2
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+
+      - name: Setup S3 bucket
+        run: |
+          aws cloudformation deploy \
+          --stack-name api-s3 \
+          --template-file ./cloudformation/frontend/s3/s3.yaml \
+          --parameter-overrides \
+            FrontendAssetsBucketName=${{ vars.FRONTEND_ASSETS_BUCKET_NAME }}
+
