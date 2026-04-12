@@ -9,6 +9,17 @@ echo "Building and zipping Lambda functions..."
 
 for func_dir in "$LAMBDA_SRC_DIR"/*/; do
   func_name=$(basename "$func_dir")
+
+  current_hash=$(find "$func_dir" -type f -not -name "*.zip" | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
+  
+  prev_hash=$(aws s3 cp "s3://${LAMBDA_SOURCE_BUCKET_NAME}/${func_name}.hash" - 2>/dev/null || echo "")
+  
+  if [ "$current_hash" == "$prev_hash" ]; then
+    echo "No changes to $func_name, skipping..."
+    continue
+  fi
+
+  echo "$current_hash" | aws s3 cp - "s3://${LAMBDA_SOURCE_BUCKET_NAME}/${func_name}.hash"
   
   echo ""
   echo "Processing: $func_name"

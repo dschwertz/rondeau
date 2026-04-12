@@ -84,12 +84,16 @@ jobs:
 
       - name: Create APIGateway and resources
         run: |
+          SPEC_HASH=$(sha256sum ./cloudformation/api/apigateway/openapi.yaml | cut -d' ' -f1)
+
+          aws s3 cp ./cloudformation/api/apigateway/openapi.yaml s3://${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}/openapi.yaml
+
           aws cloudformation deploy \
           --stack-name api-apigateway \
           --template-file ./cloudformation/api/apigateway/apigateway.yaml \
           --parameter-overrides \
             LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }} \
-            DeploymentId=$(date +%s) \
+            DeploymentId=$SPEC_HASH \
             Stage=${{ vars.APT_GATEWAY_STAGE }}
 
   deploy-frontend:
