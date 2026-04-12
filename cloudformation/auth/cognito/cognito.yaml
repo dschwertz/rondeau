@@ -18,9 +18,11 @@ Resources:
             Priority: 1
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: false
-      AliasAttributes:
-        - email
       DeletionProtection: ACTIVE
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      AutoVerifiedAttributes:
+        - email
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -33,6 +35,8 @@ Resources:
           StringAttributeConstraints:
             MaxLength: "99"
             MinLength: "1"
+      UsernameAttributes:
+        - email
       UserPoolName: !Sub rondeau-userpool-${AWS::AccountId}
 
   UserPoolClient:
