@@ -5,6 +5,8 @@ Description: Lambdas and API Gateway
 Parameters:
   AppBaseUrl:
     Type: String
+  AllowedOrigins:
+    Type: String
   LambdaSourceBucketName:
     Type: String
   StageName:
@@ -42,6 +44,7 @@ Resources:
           COGNITO_CLIENT_ID: !ImportValue cognito-user-pool-client-id
           COGNITO_DOMAIN: !ImportValue cognito-user-pool-domain
           APP_BASE_URL: !Ref AppBaseUrl
+          ALLOWED_ORIGINS: !Ref AllowedOrigins
 
   ApiAuthCallbackPermission:
     Type: AWS::Lambda::Permission

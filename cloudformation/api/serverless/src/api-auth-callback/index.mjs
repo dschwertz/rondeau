@@ -10,7 +10,17 @@ export const handler = async (event) => {
     }
   }
 
-  const codeVerifier = event.queryStringParameters?.state
+  const { codeVerifier, redirectOrigin } = JSON.parse(decodeURIComponent(event.queryStringParameters?.state))
+
+  const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',')
+  if (!allowedOrigins.includes(redirectOrigin)) {
+    return {
+      statusCode: 400,
+      body: 'Invalid redirect origin'
+    }
+  }
+
+
   if (codeVerifier == null) {
     return {
       statusCode: 400,
@@ -21,7 +31,7 @@ export const handler = async (event) => {
   const data = {
     grant_type: "authorization_code",
     client_id: process.env.COGNITO_CLIENT_ID,
-    redirect_uri: `${process.env.APP_BASE_URL}/v0/auth/callback`,
+    redirect_uri: `${redirectOrigin}/v0/auth/callback`,
     code: code,
     code_verifier: codeVerifier,
   }
@@ -42,7 +52,7 @@ export const handler = async (event) => {
     return {
       statusCode: 302,
       multiValueHeaders: {
-        Location: [process.env.APP_BASE_URL],
+        Location: [redirectOrigin],
         "Set-Cookie": [
           `access_token=${res.data.access_token}; Secure; HttpOnly; SameSite=Lax; Path=/`,
           `id_token=${res.data.id_token}; Secure; HttpOnly; SameSite=Lax; Path=/`,

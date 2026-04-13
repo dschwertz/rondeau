@@ -78,6 +78,7 @@ jobs:
             --no-fail-on-empty-changeset \
             --parameter-overrides \
             "AppBaseUrl=https://${{ vars.DOMAIN_NAME }} \
+              AllowedOrigins=${{ vars.ALLOWED_ORIGINS }} \
               LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }} \
               StageName=${{ vars.API_STAGE_NAME }}"
 
