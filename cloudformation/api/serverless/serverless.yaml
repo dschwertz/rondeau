@@ -7,6 +7,8 @@ Parameters:
     Type: String
   LambdaSourceBucketName:
     Type: String
+  StageName:
+    Type: String
 
 Globals:
   Function:
@@ -21,7 +23,7 @@ Resources:
     Properties:
       Name: rondeau-api
       OpenApiVersion: 3.0.4
-      StageName: v0
+      StageName: !Ref StageName
       DefinitionBody:
         Fn::Transform:
           Name: AWS::Include
@@ -84,3 +86,8 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RondeauApi}/*
 
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${RondeauApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
+    Export:
+      Name: api-gateway-url
