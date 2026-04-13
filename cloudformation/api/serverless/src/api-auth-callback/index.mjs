@@ -21,7 +21,7 @@ export const handler = async (event) => {
   const data = {
     grant_type: "authorization_code",
     client_id: process.env.COGNITO_CLIENT_ID,
-    redirect_uri: `${process.env.APP_BASE_URL}/api/auth/callback`,
+    redirect_uri: `${process.env.APP_BASE_URL}/v0/auth/callback`,
     code: code,
     code_verifier: codeVerifier,
   }

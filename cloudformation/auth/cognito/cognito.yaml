@@ -78,6 +78,6 @@ Outputs:
     Export:
       Name: cognito-user-pool-client-id
   UserPoolDomain:
-    Value: !Ref UserPoolDomain
+    Value: !Sub https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com
     Export:
       Name: cognito-user-pool-domain

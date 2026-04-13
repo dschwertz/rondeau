@@ -18,7 +18,7 @@ export async function login() {
       client_id: import.meta.env.VITE_COGNITO_CLIENT_ID,
       redirect_uri: import.meta.env.VITE_COGNITO_REDIRECT_URI,
       state: verifier,
-      scope: 'email openid phone',
+      scope: 'email openid profile',
       code_challenge_method: 'S256',
       code_challenge: challenge,
     })
