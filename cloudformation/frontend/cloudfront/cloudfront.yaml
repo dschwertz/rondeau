@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFront distribution for frontend and API
+
+Parameters:
+  DomainName:
+    Type: String
+  AcmCertificateArn:
+    Type: String
+  StageName:
+    Type: String
+
+Resources:
+
+  OAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: rondeau-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Aliases:
+          - !Ref DomainName
+        DefaultRootObject: index.html
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+
+        Origins:
+          - Id: S3Origin
+            DomainName: !ImportValue frontend-assets-bucket-domain
+            OriginAccessControlId: !Ref OAC
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+
+          - Id: ApiGatewayOrigin
+            DomainName: !Select [2, !Split ["/", !ImportValue api-gateway-url]]
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+          AllowedMethods:
+            - GET
+            - HEAD
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SpaRoutingFunction.FunctionARN
+
+        CacheBehaviors:
+          - PathPattern: /v0/*
+            TargetOriginId: ApiGatewayOrigin
+            ViewerProtocolPolicy: https-only
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - POST
+              - PATCH
+              - DELETE
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # AllViewerExceptHostHeader
+
+  SpaRoutingFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: rondeau-spa-routing
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Redirect all non-asset requests to index.html for SPA routing
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        async function handler(event) {
+          const request = event.request;
+          const uri = request.uri;
+
+          // If the request has a file extension, serve it directly
+          if (uri.includes('.')) {
+            return request;
+          }
+
+          // Otherwise serve index.html for SPA routing
+          request.uri = '/index.html';
+          return request;
+        }
+
+  DnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Sub ${DomainName}.
+      Name: !Sub ${DomainName}.
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2 # CloudFront hosted zone ID, this is always the same
+
+Outputs:
+  DistributionId:
+    Value: !Ref Distribution
+    Export:
+      Name: cloudfront-distribution-id
+  DistributionDomain:
+    Value: !GetAtt Distribution.DomainName
+    Export:
+      Name: cloudfront-distribution-domain
