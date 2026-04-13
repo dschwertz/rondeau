@@ -25,7 +25,7 @@ export async function login() {
 }
 
 export function logout() {
-  window.location.href = 'https://us-west-2uyfyacv0i.auth.us-west-2.amazoncognito.com/logout?' +
+  window.location.href = `${import.meta.env.VITE_COGNITO_DOMAIN}/logout?` +
     new URLSearchParams({
       client_id: import.meta.env.VITE_COGNITO_CLIENT_ID,
       logout_uri: import.meta.env.VITE_COGNITO_LOGOUT_URI,

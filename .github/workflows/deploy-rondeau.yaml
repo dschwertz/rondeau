@@ -95,6 +95,11 @@ jobs:
           aws-region: us-west-2
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
       - name: Setup S3 bucket
         run: |
           aws cloudformation deploy \
@@ -103,3 +108,10 @@ jobs:
           --parameter-overrides \
             FrontendAssetsBucketName=${{ vars.FRONTEND_ASSETS_BUCKET_NAME }}
 
+      - name: Sync frontend assets to S3
+        run: |
+          npm ci
+
+          npm run build
+
+          aws s3 sync ./dist s3://${{ vars.FRONTEND_ASSETS_BUCKET_NAME }} --delete
