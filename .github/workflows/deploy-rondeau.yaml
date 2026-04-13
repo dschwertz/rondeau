@@ -29,8 +29,8 @@ jobs:
           --stack-name auth-cognito \
           --template-file ./cloudformation/auth/cognito/cognito.yaml \
           --parameter-overrides \
-            CallbackUrl=${{ vars.COGNITO_CALLBACK_URL }} \
-            LogoutUrl=${{ vars.COGNITO_LOGOUT_URL }}
+            CallbackUrl=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/callback \
+            LogoutUrl=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/logout
 
   deploy-api:
     needs: deploy-auth
@@ -77,7 +77,7 @@ jobs:
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --parameter-overrides \
-              "AppBaseUrl=${{ vars.APP_BASE_URL }} \
+            "AppBaseUrl=https://${{ vars.DOMAIN_NAME }} \
               LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }} \
               StageName=${{ vars.API_STAGE_NAME }}"
 
@@ -123,14 +123,14 @@ jobs:
           --stack-name frontend-route53 \
           --template-file ./cloudformation/frontend/route53/route53.yaml \
           --parameter-overrides \
-            DomainName=${{ vars.APP_DOMAIN_NAME }}
+            DomainName=${{ vars.DOMAIN_NAME }}
 
-      - name: Setup Cloudfront
-        run: |
-          aws cloudformation deploy \
-          --stack-name frontend-cloudfront \
-          --template-file ./cloudformation/frontend/cloudfront/cloudfront.yaml \
-          --parameter-overrides \
-            DomainName=${{ vars.APP_DOMAIN_NAME }} \
-            AcmCertificateArn=${{ vars.DOMAIN_CERTIFICATE_ARN }} \
-            StageName=${{ vars.API_STAGE_NAME }}
+      # - name: Setup Cloudfront
+      #   run: |
+      #     aws cloudformation deploy \
+      #     --stack-name frontend-cloudfront \
+      #     --template-file ./cloudformation/frontend/cloudfront/cloudfront.yaml \
+      #     --parameter-overrides \
+      #       DomainName=${{ vars.DOMAIN_NAME }} \
+      #       AcmCertificateArn=${{ vars.DOMAIN_CERTIFICATE_ARN }} \
+      #       StageName=${{ vars.API_STAGE_NAME }}

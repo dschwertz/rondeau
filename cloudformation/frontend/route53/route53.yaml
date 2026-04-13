@@ -10,6 +10,9 @@ Resources:
     Type: AWS::Route53::HostedZone
     Properties:
       Name: !Ref DomainName
+      HostedZoneTags:
+        Key: Updated
+        Value: 12Apr2026
 
 Outputs:
   HostedZoneId:
