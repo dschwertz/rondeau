@@ -10,7 +10,7 @@ export const handler = async (event) => {
     }
   }
 
-  const { codeVerifier, redirectOrigin } = JSON.parse(decodeURIComponent(event.queryStringParameters?.state))
+  const { verifier, redirectOrigin } = JSON.parse(decodeURIComponent(event.queryStringParameters?.state))
 
   const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',')
   if (!allowedOrigins.includes(redirectOrigin)) {
@@ -21,7 +21,7 @@ export const handler = async (event) => {
   }
 
 
-  if (codeVerifier == null) {
+  if (verifier == null) {
     return {
       statusCode: 400,
       body: "codeVerifier query param state required",
@@ -33,7 +33,7 @@ export const handler = async (event) => {
     client_id: process.env.COGNITO_CLIENT_ID,
     redirect_uri: `${redirectOrigin}/v0/auth/callback`,
     code: code,
-    code_verifier: codeVerifier,
+    code_verifier: verifier,
   }
 
   try {
