@@ -29,7 +29,7 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub ${S3Bucket.Arn}/*
             Condition:
-              StringEquals:
+              ArnLike:
                 AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/*
 
 Outputs:
