@@ -1,46 +1,53 @@
 import { CognitoJwtVerifier } from 'aws-jwt-verify'
 
-function getAccessTokenFromCookies(cookiesArray) {
-  for (const cookieStr of cookiesArray) {
-    const cookieArr = cookieStr.split("accessToken=")
-    if (cookieArr[1] != null) {
-      return cookieArr[1]
+function getAccessTokenFromCookieString(cookieString) {
+  const match = cookieString.match(/(?:^|;\s*)access_token=([^;]+)/)
+  return match ? match[1] : null
+}
+
+function makePolicy(principalId, effect, resource) {
+  return {
+    principalId,
+    policyDocument: {
+      Version: "2012-10-17",
+      Statement: [{ Action: "execute-api:Invoke", Effect: effect, Resource: resource }]
     }
   }
-  return null
 }
 
 const verifier = CognitoJwtVerifier.create({
-  userPoolId: "us-west-2_uyfYAcv0I",
+  userPoolId: process.env.COGNITO_USER_POOL_ID,
   tokenUse: "access",
-  clientId: "55h608590c61vab3bbpmfcjq6d",
+  clientId: process.env.COGNITO_CLIENT_ID,
 })
 
+// event schema for token type authorization lambda:
+// {
+// type: 'TOKEN',
+// methodArn: 'arn::123',
+// authorizationToken: 'access_token=123'
+// }
 export const handler = async (event) => {
-  if (event.cookies == null) {
-    console.log("No cookies found")
-    return {
-      isAuthorized: false,
-    }
+  const deny = () => makePolicy("denied", "Deny", event.methodArn)
+
+  if (event.authorizationToken == null) {
+    console.error("No cookies found")
+    return deny()
   }
 
-  const accessToken = getAccessTokenFromCookies(event.cookies)
+  const accessToken = getAccessTokenFromCookieString(event.authorizationToken)
+  console.log("accessToken: ", accessToken)
   if (accessToken == null) {
     console.log("Access token not found in cookies")
-    return {
-      isAuthorized: false,
-    }
+    return deny()
   }
 
   try {
-    await verifier.verify(accessToken)
-    return {
-      isAuthorized: true,
-    }
+    const payload = await verifier.verify(accessToken)
+    return makePolicy(payload.sub, "Allow", event.methodArn)
   } catch (error) {
-    console.error(error)
-    return {
-      isAuthorized: false,
-    }
+    console.error("Token verification failed:", error.message)
+    return deny()
   }
 }
+

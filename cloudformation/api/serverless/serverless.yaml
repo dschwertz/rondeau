@@ -32,6 +32,26 @@ Resources:
           Parameters:
             Location: !Sub s3://${LambdaSourceBucketName}/openapi.yaml
 
+  ApiAuthorizer:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ApiAuthorizer
+      Role: !ImportValue api-lambda-role-arn
+      Handler: index.handler
+      CodeUri: ./src/api-authorizer/
+      Environment:
+        Variables:
+          COGNITO_CLIENT_ID: !ImportValue cognito-user-pool-client-id
+          COGNITO_USER_POOL_ID: !ImportValue cognito-user-pool-id
+
+  ApiAuthorizerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiAuthorizer
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RondeauApi}/*
+
   ApiAuthCallback:
     Type: AWS::Serverless::Function
     Properties:

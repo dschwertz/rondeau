@@ -1,4 +1,19 @@
-import { logout } from "../authService";
+import { logout } from "../authService"
+
+async function getApiStatus() {
+  try {
+    const response = await fetch(`/v0/status`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log(result)
+  } catch (err) {
+    console.log("error", err)
+  }
+}
 
 export default function Home() {
   return (
@@ -9,6 +24,13 @@ export default function Home() {
         onClick={logout}
       >
         Logout
+      </button>
+      <button
+        className='px-4 py-2 bg-slate-500 text-white rounded-xl'
+        type="button"
+        onClick={getApiStatus}
+      >
+        get api status
       </button>
     </div>
   )

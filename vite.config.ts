@@ -14,7 +14,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/v0': {
-        target: 'https://qvmxsddwzc.execute-api.us-west-2.amazonaws.com',
+        target: 'https://dev.rondeau.dillonschwertz.dev',
         changeOrigin: true,
         secure: true,
       }
