@@ -8,7 +8,7 @@ Resources:
       DefaultAction:
         Allow: {}
       Scope: CLOUDFRONT
-      VisabilityConfig:
+      VisibilityConfig:
         SampledRequestsEnabled: true
         CloudWatchMetricsEnabled: true
         MetricName: WebAcl
@@ -21,6 +21,10 @@ Resources:
             ManagedRuleGroupStatement:
               VendorName: AWS
               Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSManagedRulesCommonRuleSet
 
 Outputs:
   WebAclId:

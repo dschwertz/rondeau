@@ -134,12 +134,14 @@ jobs:
       - name: Setup WAF for Cloudfront
         run: |
           aws cloudformation deploy \
+          --region us-east-1 \
           --stack-name frontend-waf \
           --template-file ./cloudformation/frontend/waf/waf.yaml \
 
       - name: Setup Cloudfront
         run: |
           aws cloudformation deploy \
+          --region us-east-1 \
           --stack-name frontend-cloudfront \
           --template-file ./cloudformation/frontend/cloudfront/cloudfront.yaml \
           --parameter-overrides \
