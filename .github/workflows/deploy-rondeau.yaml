@@ -132,19 +132,28 @@ jobs:
             DomainName=${{ vars.DOMAIN_NAME }}
 
       - name: Setup WAF for Cloudfront
+        id: waf
         run: |
           aws cloudformation deploy \
-          --region us-east-1 \
-          --stack-name frontend-waf \
-          --template-file ./cloudformation/frontend/waf/waf.yaml \
+            --region us-east-1 \
+            --stack-name frontend-waf \
+            --template-file ./cloudformation/frontend/waf/waf.yaml
+
+          WAF_ARN=$(aws cloudformation describe-stacks \
+            --region us-east-1 \
+            --stack-name frontend-waf \
+            --query "Stacks[0].Outputs[?OutputKey=='WebAclArn'].OutputValue" \
+            --output text)
+
+          echo "waf_arn=$WAF_ARN" >> $GITHUB_OUTPUT
 
       - name: Setup Cloudfront
         run: |
           aws cloudformation deploy \
-          --region us-east-1 \
           --stack-name frontend-cloudfront \
           --template-file ./cloudformation/frontend/cloudfront/cloudfront.yaml \
           --parameter-overrides \
+            WebAclArn=${{ steps.waf.outputs.waf_arn }} \
             DomainName=${{ vars.DOMAIN_NAME }} \
             AcmCertificateArn=${{ vars.DOMAIN_CERTIFICATE_ARN }} \
             StageName=${{ vars.API_STAGE_NAME }}

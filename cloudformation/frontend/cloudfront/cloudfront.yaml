@@ -2,6 +2,8 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: CloudFront distribution for frontend and API
 
 Parameters:
+  WebAclArn:
+    Type: String
   DomainName:
     Type: String
   AcmCertificateArn:
@@ -24,7 +26,7 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        WebAclId: !ImportValue webacl-arn
+        WebAclId: !Ref WebAclArn
         Aliases:
           - !Ref DomainName
         DefaultRootObject: index.html
