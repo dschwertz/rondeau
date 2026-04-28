@@ -131,6 +131,12 @@ jobs:
           --parameter-overrides \
             DomainName=${{ vars.DOMAIN_NAME }}
 
+      - name: Setup WAF for Cloudfront
+        run: |
+          aws cloudformation deploy \
+          --stack-name frontend-waf \
+          --template-file ./cloudformation/frontend/waf/waf.yaml \
+
       - name: Setup Cloudfront
         run: |
           aws cloudformation deploy \

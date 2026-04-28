@@ -10,7 +10,6 @@ Parameters:
     Type: String
 
 Resources:
-
   OAC:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
@@ -25,6 +24,7 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
+        WebAclId: !ImportValue webacl-arn
         Aliases:
           - !Ref DomainName
         DefaultRootObject: index.html
