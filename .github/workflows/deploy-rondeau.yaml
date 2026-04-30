@@ -111,6 +111,7 @@ jobs:
             FrontendAssetsBucketName=${{ vars.FRONTEND_ASSETS_BUCKET_NAME }}
 
       - name: Sync frontend assets to S3
+        working-directory: ./webapp
         env:
           VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
           VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}
