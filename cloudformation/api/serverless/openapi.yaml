@@ -25,6 +25,34 @@ components:
         identitySource: method.request.header.Cookie
 
 paths:
+  /auth/status:
+    get:
+      summary: Get user information from id token
+      description: >
+        This resource triggers the api-auth-status Lambda which decodes the id token from the cookie and returns an object defining important user attributes
+      security:
+        - default-authorizer: []
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  user:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ApiAuthStatus/invocations
+
   /auth/callback:
     get:
       summary: Callback function for Cognito authentication.

@@ -52,6 +52,26 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RondeauApi}/*
 
+  ApiAuthStatus:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ApiAuthStatus
+      Role: !ImportValue api-lambda-role-arn
+      Handler: index.handler
+      CodeUri: ./src/api-auth-status/
+      Environment:
+        Variables:
+          COGNITO_CLIENT_ID: !ImportValue cognito-user-pool-client-id
+          COGNITO_USER_POOL_ID: !ImportValue cognito-user-pool-id
+
+  ApiAuthStatusPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiAuthStatus
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RondeauApi}/*
+
   ApiAuthCallback:
     Type: AWS::Serverless::Function
     Properties:
