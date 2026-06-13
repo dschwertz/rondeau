@@ -10,7 +10,8 @@ export const handler = async (event) => {
     }
   }
 
-  const { verifier, redirectOrigin } = JSON.parse(decodeURIComponent(event.queryStringParameters?.state))
+  let { verifier, redirectOrigin } = JSON.parse(decodeURIComponent(event.queryStringParameters?.state))
+  if (redirectOrigin == 'localhost') { redirectOrigin = 'http://localhost:5173' }
 
   const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',')
   if (!allowedOrigins.includes(redirectOrigin)) {
