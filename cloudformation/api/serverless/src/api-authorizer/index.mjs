@@ -44,7 +44,8 @@ export const handler = async (event) => {
 
   try {
     const payload = await verifier.verify(accessToken)
-    return makePolicy(payload.sub, "Allow", event.methodArn)
+    const wildcardArn = event.methodArn.replace(/\/[^/]+\/[^/]+\/.*$/, '/*/*')
+    return makePolicy(payload.sub, "Allow", wildcardArn)
   } catch (error) {
     console.error("Token verification failed:", error.message)
     return deny()
