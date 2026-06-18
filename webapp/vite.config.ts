@@ -1,23 +1,29 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from "vite"
+import react from "@vitejs/plugin-react"
+import tailwindcss from "@tailwindcss/vite"
+import path from "path"
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    },
+  },
   plugins: [
     react({
       babel: {
-        plugins: [['babel-plugin-react-compiler']],
+        plugins: [["babel-plugin-react-compiler"]],
       },
     }),
-    tailwindcss()
+    tailwindcss(),
   ],
   server: {
     proxy: {
-      '/v0': {
-        target: 'https://dev.rondeau.dillonschwertz.dev',
+      "/v0": {
+        target: "https://dev.rondeau.dillonschwertz.dev",
         changeOrigin: true,
         secure: true,
-      }
-    }
-  }
+      },
+    },
+  },
 })

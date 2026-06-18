@@ -1,32 +1,35 @@
-import qs from 'qs'
-import axios from 'axios'
+import qs from "qs";
+import axios from "axios";
 
 export const handler = async (event) => {
-  const code = event.queryStringParameters?.code
+  const code = event.queryStringParameters?.code;
   if (code == null) {
     return {
       statusCode: 400,
       body: "code query param required",
-    }
+    };
   }
 
-  let { verifier, redirectOrigin } = JSON.parse(decodeURIComponent(event.queryStringParameters?.state))
-  if (redirectOrigin == 'localhost') { redirectOrigin = 'http://localhost:5173' }
+  let { verifier, redirectOrigin } = JSON.parse(
+    decodeURIComponent(event.queryStringParameters?.state),
+  );
+  if (redirectOrigin == "localhost") {
+    redirectOrigin = "http://localhost:5173";
+  }
 
-  const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',')
+  const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
   if (!allowedOrigins.includes(redirectOrigin)) {
     return {
       statusCode: 400,
-      body: 'Invalid redirect origin'
-    }
+      body: "Invalid redirect origin",
+    };
   }
-
 
   if (verifier == null) {
     return {
       statusCode: 400,
       body: "codeVerifier query param state required",
-    }
+    };
   }
 
   const data = {
@@ -35,7 +38,7 @@ export const handler = async (event) => {
     redirect_uri: `${redirectOrigin}/v0/auth/callback`,
     code: code,
     code_verifier: verifier,
-  }
+  };
 
   try {
     const res = await axios.post(
@@ -45,28 +48,31 @@ export const handler = async (event) => {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
-      }
-    )
+      },
+    );
 
-    console.log("Token exchange successful: ", res.data)
+    console.log("Token exchange successful: ", res.data);
 
     return {
       statusCode: 302,
       multiValueHeaders: {
-        Location: [redirectOrigin],
+        Location: [`${redirectOrigin}/home`],
         "Set-Cookie": [
           `access_token=${res.data.access_token}; Secure; HttpOnly; SameSite=Lax; Path=/`,
           `id_token=${res.data.id_token}; Secure; HttpOnly; SameSite=Lax; Path=/`,
-          `refresh_token=${res.data.refresh_token}; Secure; HttpOnly; SameSite=Lax; Path=/`
-        ]
-      }
-    }
+          `refresh_token=${res.data.refresh_token}; Secure; HttpOnly; SameSite=Lax; Path=/`,
+        ],
+      },
+    };
   } catch (error) {
-    console.error("Token exchange failed: ", error.response?.data || error.message)
+    console.error(
+      "Token exchange failed: ",
+      error.response?.data || error.message,
+    );
 
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.response?.data || error.message })
-    }
+      body: JSON.stringify({ error: error.response?.data || error.message }),
+    };
   }
-}
+};

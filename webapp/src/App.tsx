@@ -1,18 +1,50 @@
-import { Redirect, Route, Switch } from 'wouter'
-import Home from './pages/Home'
-import LogIn from './pages/LogIn'
+import { useEffect, useState } from "react"
+import { Redirect, Route, Switch } from "wouter"
+
+import { getAuthStatus } from "@/api/auth/status"
+import type { AuthStatus } from "@/types"
+
+import Root from "@/pages/Root"
+import Home from "@/pages/Home"
 
 function App() {
-  return (
-    <>
-      <Switch>
-        <Route path='/login' component={LogIn} />
-        <Route path='/' component={Home} />
+  const [authStatus, setAuthStatus] = useState<AuthStatus>({
+    isAuthenticated: false,
+    message: "Uninitialized status.",
+  })
 
-        <Redirect to='/login' />
-      </Switch>
-    </>
-  )
+  useEffect(() => {
+    ;(async () => {
+      try {
+        setAuthStatus(await getAuthStatus())
+      } catch (err) {
+        setAuthStatus({
+          isAuthenticated: false,
+          message: "Client fetch error.",
+        })
+      }
+    })()
+  }, [])
+
+  if (authStatus.isAuthenticated == false) {
+    return (
+      <>
+        <Switch>
+          <Route path="/" component={Root} />
+          <Redirect to="/" />
+        </Switch>
+      </>
+    )
+  } else if (authStatus.isAuthenticated == true) {
+    return (
+      <>
+        <Switch>
+          <Route path="/home" component={Home} />
+          <Redirect to="/home" />
+        </Switch>
+      </>
+    )
+  }
 }
 
 export default App
