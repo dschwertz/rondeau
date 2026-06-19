@@ -8,10 +8,7 @@ import Root from "@/pages/Root"
 import Home from "@/pages/Home"
 
 function App() {
-  const [authStatus, setAuthStatus] = useState<AuthStatus>({
-    isAuthenticated: false,
-    message: "Uninitialized status.",
-  })
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -26,7 +23,9 @@ function App() {
     })()
   }, [])
 
-  if (authStatus.isAuthenticated == false) {
+  if (authStatus == null) {
+    return null
+  } else if (authStatus.isAuthenticated == false) {
     return (
       <>
         <Switch>
