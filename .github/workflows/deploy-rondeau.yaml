@@ -112,12 +112,20 @@ jobs:
 
       - name: Sync frontend assets to S3
         working-directory: ./webapp
-        env:
-          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
-          VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}
-          VITE_COGNITO_LOGOUT_URI: ${{ vars.VITE_COGNITO_LOGOUT_URI }}
-          VITE_COGNITO_REDIRECT_URI: ${{ vars.VITE_COGNITO_REDIRECT_URI }}
         run: |
+          export VITE_COGNITO_CLIENT_ID=$(aws cloudformation describe-stacks \
+            --stack-name auth-cognito \
+            --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" \
+            --output text)
+
+          export VITE_COGNITO_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name auth-cognito \
+            --query "Stacks[0].Outputs[?OutputKey=='UserPoolDomain'].OutputValue" \
+            --output text)
+
+          export VITE_COGNITO_REDIRECT_URI=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/callback
+          export VITE_COGNITO_LOGOUT_URI=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/logout
+
           npm ci
 
           npm run build
