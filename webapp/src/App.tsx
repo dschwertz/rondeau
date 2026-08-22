@@ -11,7 +11,7 @@ function App() {
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null)
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         setAuthStatus(await getAuthStatus())
       } catch (err) {
@@ -30,6 +30,7 @@ function App() {
       <>
         <Switch>
           <Route path="/" component={Root} />
+          <Route path="/home" component={Home} />
           <Redirect to="/" />
         </Switch>
       </>

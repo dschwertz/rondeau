@@ -14,13 +14,10 @@ The deployment is mostly automated via GitHub Actions, but a few one-time steps 
 | `OIDC_ROLE_ARN` | Role ARN from step 3 |
 | `DOMAIN_NAME` | Your registered domain |
 | `DOMAIN_CERTIFICATE_ARN` | Certificate ARN from step 2 |
-| `API_STAGE_NAME` | API Gateway stage name |
-| `LAMBDA_SOURCE_BUCKET_NAME` | S3 bucket name for Lambda artifacts |
 | `FRONTEND_ASSETS_BUCKET_NAME` | S3 bucket name for frontend assets |
 | `ALLOWED_ORIGINS` | CORS allowed origins |
 
 Push to main or dev to trigger the workflow. It will:
 
-- Deploy Cognito (auth)
-- Deploy IAM roles, S3, API Gateway, and Lambda functions (api)
-- Deploy S3, Route 53, WAF, and CloudFront, then build and sync the frontend (frontend)
+- Deploy auth services: Cognito
+- Deploy frontend services: S3, Route 53, WAF, and CloudFront, then build and sync the frontend

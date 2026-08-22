@@ -32,58 +32,7 @@ jobs:
             CallbackUrl=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/callback \
             LogoutUrl=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/logout
 
-  deploy-api:
-    needs: deploy-auth
-    runs-on: ubuntu-latest
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.2
-
-      - name: Configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v6.1.0
-        with:
-          audience: sts.amazonaws.com
-          aws-region: us-west-2
-          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
-
-      - name: Setup SAM
-        run: pip install aws-sam-cli
-
-      - name: Create IAM roles
-        run: |
-          aws cloudformation deploy \
-          --stack-name api-iam \
-          --capabilities CAPABILITY_NAMED_IAM \
-          --template-file ./cloudformation/api/iam/iam.yaml
-
-      - name: Setup S3 bucket
-        run: |
-          aws cloudformation deploy \
-          --stack-name api-s3 \
-          --template-file ./cloudformation/api/s3/s3.yaml \
-          --parameter-overrides \
-            LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
-
-      - name: Create APIGateway and Lambda functions
-        run: |
-          aws s3 cp ./cloudformation/api/serverless/openapi.yaml s3://${{ vars.LAMBDA_SOURCE_BUCKET_NAME }}
-
-          sam build --template ./cloudformation/api/serverless/serverless.yaml
-
-          sam deploy \
-            --stack-name api-serverless \
-            --s3-bucket ${{ vars.LAMBDA_SOURCE_BUCKET_NAME }} \
-            --no-confirm-changeset \
-            --no-fail-on-empty-changeset \
-            --parameter-overrides \
-            "AppBaseUrl=https://${{ vars.DOMAIN_NAME }} \
-              AllowedOrigins=${{ vars.ALLOWED_ORIGINS }} \
-              LambdaSourceBucketName=${{ vars.LAMBDA_SOURCE_BUCKET_NAME }} \
-              StageName=${{ vars.API_STAGE_NAME }}"
-
   deploy-frontend:
-    needs: deploy-api
     runs-on: ubuntu-latest
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
@@ -164,5 +113,4 @@ jobs:
           --parameter-overrides \
             WebAclArn=${{ steps.waf.outputs.waf_arn }} \
             DomainName=${{ vars.DOMAIN_NAME }} \
-            AcmCertificateArn=${{ vars.DOMAIN_CERTIFICATE_ARN }} \
-            StageName=${{ vars.API_STAGE_NAME }}
+            AcmCertificateArn=${{ vars.DOMAIN_CERTIFICATE_ARN }}

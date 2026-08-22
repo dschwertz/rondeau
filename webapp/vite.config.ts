@@ -20,7 +20,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/v0": {
-        target: "https://dev.rondeau.dillonschwertz.dev",
+        target: "http://localhost:3000",
         changeOrigin: true,
         secure: true,
       },

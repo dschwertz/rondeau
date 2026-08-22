@@ -1,0 +1,15 @@
+services:
+  api:
+    build: ./api/ 
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./api/.env
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./api/src
+          target: /api/src
+          initial_sync: true
+        - action: rebuild
+          path: ./api/package.json

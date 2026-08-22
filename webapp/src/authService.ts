@@ -20,6 +20,11 @@ export async function login() {
   }
 
   const { verifier, challenge } = await generatePKCE()
+
+  /**
+    * @desc 'localhost' origin is a workaround to allow local development. Encoding the full local url is
+    *     flagged by the WAF unnecessarily
+    */
   const state = encodeURIComponent(
     JSON.stringify({
       verifier,
