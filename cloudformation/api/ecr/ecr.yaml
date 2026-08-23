@@ -1,0 +1,9 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: ECR service
+
+Resources:
+  ApiEcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      EmptyOnDelete: true
+      RepositoryName: "rondeau/api"
