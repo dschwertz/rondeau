@@ -52,6 +52,12 @@ jobs:
           --stack-name api-ecr \
           --template-file ./cloudformation/api/ecr/ecr.yaml
 
+      - name: Setup VPC and subnets
+        run: |
+          aws cloudformation deploy \
+          --stack-name api-ec2 \
+          --template-file ./cloudformation/api/ec2/ec2.yaml
+
   deploy-frontend:
     needs: deploy-auth
     runs-on: ubuntu-latest

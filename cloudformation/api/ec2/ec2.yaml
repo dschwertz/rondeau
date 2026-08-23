@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EC2 service
+
+Resources:
+  Vpc01:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/24
+      EnableDnsHostnames: true
+
+  PrivateSubnet01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 192.168.0.0/27
+      AvailabilityZone: !Select [0, !GetAZs '']
+      VpcId: !Ref Vpc01
+
+  PrivateSubnet02:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 192.168.0.32/27
+      AvailabilityZone: !Select [1, !GetAZs '']
+      VpcId: !Ref Vpc01
