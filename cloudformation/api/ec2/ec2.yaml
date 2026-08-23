@@ -21,3 +21,11 @@ Resources:
       CidrBlock: 192.168.0.32/27
       AvailabilityZone: !Select [1, !GetAZs '']
       VpcId: !Ref Vpc01
+
+  Alb01:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internal
+      Subnets:
+        - !Ref PrivateSubnet01
+        - !Ref PrivateSubnet02
