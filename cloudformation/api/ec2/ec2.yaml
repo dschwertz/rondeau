@@ -22,10 +22,41 @@ Resources:
       AvailabilityZone: !Select [1, !GetAZs '']
       VpcId: !Ref Vpc01
 
+  InternetGateway01:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: CloudFront Required
+
+  Ig01Vpc01:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway01
+      VpcId: !Ref Vpc01
+
+  Sg01:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref Vpc01
+      GroupDescription: ALB SG
+
+  Sg01InboundRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allows traffic from CloudFront
+      GroupId: !Ref Sg01
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourcePrefixListId: pl-82a045eb
+
   Alb01:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Scheme: internal
+      SecurityGroups:
+        - !Ref Sg01
       Subnets:
         - !Ref PrivateSubnet01
         - !Ref PrivateSubnet02
