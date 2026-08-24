@@ -1,6 +1,10 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: EC2 service
 
+Parameters:
+  ApiCertificateArn:
+    Type: String
+
 Resources:
   Vpc01:
     Type: AWS::EC2::VPC
@@ -60,6 +64,21 @@ Resources:
       Subnets:
         - !Ref PrivateSubnet01
         - !Ref PrivateSubnet02
+
+  AlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Alb01
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref ApiCertificateArn
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            StatusCode: "200"
+            ContentType: text/plain
+            MessageBody: "Green on track"
 
 Outputs:
   Alb01Arn:

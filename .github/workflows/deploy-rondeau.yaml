@@ -56,7 +56,9 @@ jobs:
         run: |
           aws cloudformation deploy \
           --stack-name api-ec2 \
-          --template-file ./cloudformation/api/ec2/ec2.yaml
+          --template-file ./cloudformation/api/ec2/ec2.yaml \
+          --parameter-overrides \
+            ApiCertificateArn=${{ vars.API_CERTIFICATE_ARN }}
 
   deploy-frontend:
     needs: deploy-auth
@@ -140,5 +142,5 @@ jobs:
           --parameter-overrides \
             WebAclArn=${{ steps.waf.outputs.waf_arn }} \
             DomainName=${{ vars.DOMAIN_NAME }} \
-            AcmCertificateArn=${{ vars.DOMAIN_CERTIFICATE_ARN }} \
+            DomainCertificateArn=${{ vars.DOMAIN_CERTIFICATE_ARN }} \
             ApiStage=${{ vars.API_STAGE_NAME }}
