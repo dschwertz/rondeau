@@ -60,3 +60,13 @@ Resources:
       Subnets:
         - !Ref PrivateSubnet01
         - !Ref PrivateSubnet02
+
+Outputs:
+  Alb01Arn:
+    Value: !Ref Alb01
+    Export:
+      Name: api-alb-arn
+  Alb01DomainName:
+    Value: !GetAtt Alb01.DNSName
+    Export:
+      Name: api-alb-domain-name

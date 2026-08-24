@@ -8,6 +8,8 @@ Parameters:
     Type: String
   AcmCertificateArn:
     Type: String
+  ApiStage:
+    Type: String
 
 Resources:
   OAC:
@@ -18,6 +20,13 @@ Resources:
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
+
+  VpcOrigin:
+    Type: AWS::CloudFront::VpcOrigin
+    Properties:
+      VpcOriginEndpointConfig:
+        Arn: !ImportValue api-alb-arn
+        Name: ApiAlb
 
   Distribution:
     Type: AWS::CloudFront::Distribution
@@ -39,6 +48,11 @@ Resources:
             OriginAccessControlId: !Ref OAC
             S3OriginConfig:
               OriginAccessIdentity: ''
+          - Id: AlbOrigin
+            DomainName: !ImportValue api-alb-domain-name
+            OriginPath: !Sub "/${ApiStage}"
+            VpcOriginConfig:
+              VpcOriginId: !Ref VpcOrigin
 
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
