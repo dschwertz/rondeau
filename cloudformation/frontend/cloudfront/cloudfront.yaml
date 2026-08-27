@@ -50,7 +50,6 @@ Resources:
               OriginAccessIdentity: ''
           - Id: AlbOrigin
             DomainName: !Sub "api.${DomainName}"
-            OriginPath: !Sub "/${ApiStage}"
             VpcOriginConfig:
               VpcOriginId: !Ref VpcOrigin
 
