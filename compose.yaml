@@ -1,10 +1,12 @@
+name: rondeau
+
 services:
   api:
-    build: ./api/ 
+    build:
+      context: ./api/ 
+    image: ${IMAGE_REGISTRY:-local}/${IMAGE_REPOSITORY_NAME:-local}:api-${GIT_SHA:-nocommit}
     ports:
       - "3000:3000"
-    env_file:
-      - ./api/.env
     develop:
       watch:
         - action: sync+restart

@@ -1,9 +1,13 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: ECR service
 
+Parameters:
+  RepositoryName:
+    Type: String
+
 Resources:
   ApiEcrRepository:
     Type: AWS::ECR::Repository
     Properties:
       EmptyOnDelete: true
-      RepositoryName: "rondeau/api"
+      RepositoryName: !Ref RepositoryName

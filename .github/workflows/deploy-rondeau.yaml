@@ -32,8 +32,66 @@ jobs:
             CallbackUrl=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/callback \
             LogoutUrl=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/logout
 
+  deploy-images:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v2
+        with:
+          version: latest
+
+      - name: Verify Compose version
+        run: docker compose version
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.0
+        with:
+          audience: sts.amazonaws.com
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+
+      - name: Setup ECR repository
+        run: |
+          aws cloudformation deploy \
+          --stack-name docker-ecr \
+          --template-file ./cloudformation/docker/ecr/ecr.yaml \
+          --parameter-overrides \
+            RepositoryName=${{ vars.IMAGE_REPOSITORY_NAME }}
+
+      - name: Docker login for ECR
+        run: |
+          aws ecr get-login-password --region ${{ vars.AWS_REGION }} \
+          | docker login \
+          --username AWS \
+          --password-stdin ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+
+      - name: Compute shortend commit sha
+        run: |
+          echo "GIT_SHA=${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
+
+      - name: Build images
+        env:
+          IMAGE_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+          IMAGE_REPOSITORY_NAME: ${{ vars.IMAGE_REPOSITORY_NAME }}
+        run: |
+          docker compose build
+
+      - name: Push images
+        env:
+          IMAGE_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+          IMAGE_REPOSITORY_NAME: ${{ vars.IMAGE_REPOSITORY_NAME }}
+        run: |
+          docker compose push
+
+
   deploy-api:
-    needs: deploy-auth
+    needs:
+      - deploy-auth
+      - deploy-images
     runs-on: ubuntu-latest
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
@@ -46,12 +104,6 @@ jobs:
           audience: sts.amazonaws.com
           aws-region: us-west-2
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
-
-      - name: Setup ECR repository
-        run: |
-          aws cloudformation deploy \
-          --stack-name api-ecr \
-          --template-file ./cloudformation/api/ecr/ecr.yaml
 
       - name: Setup VPC and subnets
         run: |
