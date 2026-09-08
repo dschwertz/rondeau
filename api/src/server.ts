@@ -13,8 +13,12 @@ app.use(cookieParser())
 
 app.use(`/${versionId}/api`, swaggerUi.serve, swaggerUi.setup(swaggerDocument.default))
 
-app.get(`/${versionId}/`, (_, res: Response) => {
+app.get(`/${versionId}`, (_, res: Response) => {
   res.send('Hello World!')
+})
+
+app.get('/health', (_, res: Response) => {
+  res.status(200).send('Healthy')
 })
 
 app.listen(port, () => {

@@ -4,6 +4,10 @@ Description: EC2 service
 Parameters:
   ApiCertificateArn:
     Type: String
+  ImageRepositoryName:
+    Type: String
+  GitSha:
+    Type: String
   LatestAmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
@@ -15,19 +19,46 @@ Resources:
       CidrBlock: 192.168.0.0/24
       EnableDnsHostnames: true
 
-  PrivateSubnet01:
+  RouteTable01:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc01
+
+  RouteInternetGateway:
+    Type: AWS::EC2::Route
+    DependsOn: Ig01Vpc01
+    Properties:
+      RouteTableId: !Ref RouteTable01
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway01
+
+  PublicSubnet01:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: 192.168.0.0/27
       AvailabilityZone: !Select [0, !GetAZs '']
       VpcId: !Ref Vpc01
+      MapPublicIpOnLaunch: true
 
-  PrivateSubnet02:
+  Subnet01RouteTable01:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable01
+      SubnetId: !Ref PublicSubnet01
+
+  PublicSubnet02:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: 192.168.0.32/27
       AvailabilityZone: !Select [1, !GetAZs '']
       VpcId: !Ref Vpc01
+      MapPublicIpOnLaunch: true
+
+  Subnet02RouteTable01:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable01
+      SubnetId: !Ref PublicSubnet02
 
   InternetGateway01:
     Type: AWS::EC2::InternetGateway
@@ -65,8 +96,8 @@ Resources:
       SecurityGroups:
         - !Ref Sg01
       Subnets:
-        - !Ref PrivateSubnet01
-        - !Ref PrivateSubnet02
+        - !Ref PublicSubnet01
+        - !Ref PublicSubnet02
 
   AlbListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -96,30 +127,50 @@ Resources:
       ToPort: 3000
       SourceSecurityGroupId: !Ref Sg01
 
-  ApiInstance:
-    Type: AWS::EC2::Instance
+  ApiInstanceRole:
+    Type: AWS::IAM::Role
     Properties:
-      InstanceType: t4g.nano
-      ImageId: !Ref LatestAmiId
-      SubnetId: !Ref PrivateSubnet01
-      SecurityGroupIds:
-        - !Ref Sg02
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          cat << 'EOF' > /srv/echo_server.py
-          from http.server import BaseHTTPRequestHandler, HTTPServer
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly
+      RoleName: ApiInstanceRole
 
-          class Handler(BaseHTTPRequestHandler):
-              def do_GET(self):
-                  self.send_response(200)
-                  self.send_header("Content-Type", "text/plain")
-                  self.end_headers()
-                  self.wfile.write(f"You requested: {self.path}\n".encode())
+  ApiInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: ApiInstanceProfile
+      Roles:
+        - !Ref ApiInstanceRole
 
-          HTTPServer(("0.0.0.0", 3000), Handler).serve_forever()
-          EOF
-          nohup python3 /srv/echo_server.py &
+  ApiLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        InstanceType: t4g.nano
+        IamInstanceProfile:
+          Name: !Ref ApiInstanceProfile
+        ImageId: !Ref LatestAmiId
+        SecurityGroupIds:
+          - !Ref Sg02
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            dnf update -y
+            dnf install docker -y
+            systemctl enable --now docker
+
+            aws ecr get-login-password --region ${AWS::Region} | \
+              docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
+            
+            docker pull ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageRepositoryName}:api-${GitSha}
+            docker run -d --restart unless-stopped -p 3000:3000 \
+              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageRepositoryName}:api-${GitSha}
 
   ApiTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -128,9 +179,23 @@ Resources:
       Port: 3000
       Protocol: HTTP
       TargetType: instance
-      Targets:
-        - Id: !Ref ApiInstance
-      HealthCheckPath: /
+      HealthCheckPath: /health
+
+  ApiAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ApiLaunchTemplate
+        Version: !GetAtt ApiLaunchTemplate.LatestVersionNumber
+      MaxSize: '1'
+      MinSize: '1'
+      VPCZoneIdentifier: 
+        - !Ref PublicSubnet01
+        - !Ref PublicSubnet02
+      TargetGroupARNs:
+        - !Ref ApiTargetGroup
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
 
 Outputs:
   Alb01Arn:

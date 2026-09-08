@@ -20,7 +20,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6.1.0
         with:
           audience: sts.amazonaws.com
-          aws-region: us-west-2
+          aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
 
       - name: Setup Cognito
@@ -73,6 +73,14 @@ jobs:
         run: |
           echo "GIT_SHA=${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v2
+        with:
+          version: latest
+
       - name: Build images
         env:
           IMAGE_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
@@ -86,7 +94,6 @@ jobs:
           IMAGE_REPOSITORY_NAME: ${{ vars.IMAGE_REPOSITORY_NAME }}
         run: |
           docker compose push
-
 
   deploy-api:
     needs:
@@ -102,7 +109,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6.1.0
         with:
           audience: sts.amazonaws.com
-          aws-region: us-west-2
+          aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
 
       - name: Setup VPC and subnets
@@ -110,8 +117,22 @@ jobs:
           aws cloudformation deploy \
           --stack-name api-ec2 \
           --template-file ./cloudformation/api/ec2/ec2.yaml \
+          --capabilities CAPABILITY_NAMED_IAM \
           --parameter-overrides \
-            ApiCertificateArn=${{ vars.API_CERTIFICATE_ARN }}
+            ApiCertificateArn=${{ vars.API_CERTIFICATE_ARN }} \
+            ImageRepositoryName=${{ vars.IMAGE_REPOSITORY_NAME }} \
+            GitSha=${GITHUB_SHA:0:7}
+
+      - name: Trigger instance refresh
+        run: |
+          ASG_NAME=$(aws cloudformation describe-stack-resources \
+            --stack-name api-ec2 \
+            --logical-resource-id ApiAutoScalingGroup \
+            --query "StackResources[0].PhysicalResourceId" \
+            --output text)
+
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$ASG_NAME"
 
   deploy-frontend:
     needs: deploy-api
@@ -125,7 +146,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6.1.0
         with:
           audience: sts.amazonaws.com
-          aws-region: us-west-2
+          aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
 
       - name: Setup Node.js

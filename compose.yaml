@@ -4,6 +4,7 @@ services:
   api:
     build:
       context: ./api/ 
+    platform: linux/arm64
     image: ${IMAGE_REGISTRY:-local}/${IMAGE_REPOSITORY_NAME:-local}:api-${GIT_SHA:-nocommit}
     ports:
       - "3000:3000"
