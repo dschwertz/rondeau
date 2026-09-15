@@ -9,29 +9,6 @@ permissions:
   contents: read    # This is required for actions/checkout
 jobs:
 
-  deploy-auth:
-    runs-on: ubuntu-latest
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.2
-
-      - name: Configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v6.1.0
-        with:
-          audience: sts.amazonaws.com
-          aws-region: ${{ vars.AWS_REGION }}
-          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
-
-      - name: Setup Cognito
-        run: |
-          aws cloudformation deploy \
-          --stack-name auth-cognito \
-          --template-file ./cloudformation/auth/cognito/cognito.yaml \
-          --parameter-overrides \
-            CallbackUrl=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/callback \
-            LogoutUrl=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/logout
-
   deploy-images:
     runs-on: ubuntu-latest
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
@@ -97,7 +74,6 @@ jobs:
 
   deploy-api:
     needs:
-      - deploy-auth
       - deploy-images
     runs-on: ubuntu-latest
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
@@ -133,6 +109,30 @@ jobs:
 
           aws autoscaling start-instance-refresh \
             --auto-scaling-group-name "$ASG_NAME"
+
+  deploy-auth:
+    needs:
+      - deploy-api
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.0
+        with:
+          audience: sts.amazonaws.com
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+
+      - name: Setup Cognito
+        run: |
+          aws cloudformation deploy \
+          --stack-name auth-cognito \
+          --template-file ./cloudformation/auth/cognito/cognito.yaml \
+          --parameter-overrides \
+            LogoutUrl=https://${{ vars.DOMAIN_NAME }}
 
   deploy-frontend:
     needs: deploy-api

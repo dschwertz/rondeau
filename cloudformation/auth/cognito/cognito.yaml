@@ -2,8 +2,6 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Cognito service configuration
 
 Parameters:
-  CallbackUrl:
-    Type: String
   LogoutUrl:
     Type: String
 
@@ -50,7 +48,9 @@ Resources:
         - openid
         - profile
       CallbackURLs:
-        - !Ref CallbackUrl
+        - !Sub
+          - 'https://${Alb01DomainName}/oauth2/idpresponse'
+          - Alb01DomainName: !ImportValue api-alb-domain-name
       ClientName: !Sub rondeau-app-client-${AWS::AccountId}
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
