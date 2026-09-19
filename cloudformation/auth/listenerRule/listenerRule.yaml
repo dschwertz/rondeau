@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: ALB listener rules are added later during the build after dependency services are already configured (Cognito for protected listener)
+
+Parameters:
+  ApiStage:
+    Type: String
+
+Resources:
+  ListenerRulePublic:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions: 
+        - Type: forward
+          TargetGroupArn: !ImportValue api-api-target-group-arn
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - !Sub '/${ApiStage}/api/*'
+      ListenerArn: !ImportValue api-alb01-listener-api-arn
+      Priority: 10
+
+  ListenerRuleProtected:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions: 
+        - Type: authenticate-cognito
+          Order: 1
+          AuthenticateCognitoConfig:
+            UserPoolArn: !ImportValue cognito-user-pool-arn
+            UserPoolClientId: !ImportValue cognito-user-pool-client-id
+            UserPoolDomain: !ImportValue cognito-user-pool-domain
+            OnUnauthenticatedRequest: deny
+        - Type: forward
+          Order: 2
+          TargetGroupArn: !ImportValue api-api-target-group-arn
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - !Sub '/${ApiStage}/*'
+      ListenerArn: !ImportValue api-alb01-listener-api-arn
+      Priority: 20
+

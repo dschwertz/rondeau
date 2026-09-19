@@ -99,7 +99,7 @@ Resources:
         - !Ref PublicSubnet01
         - !Ref PublicSubnet02
 
-  AlbListener:
+  Alb01ListenerApi:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn: !Ref Alb01
@@ -201,8 +201,16 @@ Outputs:
   Alb01Arn:
     Value: !Ref Alb01
     Export:
-      Name: api-alb-arn
+      Name: api-alb01-arn
   Alb01DomainName:
     Value: !GetAtt Alb01.DNSName
     Export:
-      Name: api-alb-domain-name
+      Name: api-alb01-domain-name
+  Alb01ListenerApiArn:
+    Value: !Ref Alb01ListenerApi
+    Export:
+      Name: api-alb01-listener-api-arn
+  ApiTargetGroupArn:
+    Value: !Ref ApiTargetGroup
+    Export:
+      Name: api-api-target-group-arn

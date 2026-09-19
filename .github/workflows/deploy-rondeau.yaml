@@ -10,7 +10,7 @@ permissions:
 jobs:
 
   deploy-images:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
       - name: Checkout
@@ -51,7 +51,7 @@ jobs:
           echo "GIT_SHA=${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Compose
         uses: docker/setup-compose-action@v2
@@ -75,7 +75,7 @@ jobs:
   deploy-api:
     needs:
       - deploy-images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
       - name: Checkout
@@ -113,7 +113,7 @@ jobs:
   deploy-auth:
     needs:
       - deploy-api
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
       - name: Checkout
@@ -132,11 +132,19 @@ jobs:
           --stack-name auth-cognito \
           --template-file ./cloudformation/auth/cognito/cognito.yaml \
           --parameter-overrides \
-            LogoutUrl=https://${{ vars.DOMAIN_NAME }}
+            DomainName=${{ vars.DOMAIN_NAME }}
+
+      - name: Add listener rules to ALB
+        run: |
+          aws cloudformation deploy \
+          --stack-name auth-listenerRule \
+          --template-file ./cloudformation/auth/listenerRule/listenerRule.yaml \
+          --parameter-overrides \
+            ApiStage=${{ vars.API_STAGE_NAME }} \
 
   deploy-frontend:
     needs: deploy-api
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
       - name: Checkout

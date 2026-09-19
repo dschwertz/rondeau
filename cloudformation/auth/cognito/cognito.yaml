@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Cognito service configuration
 
 Parameters:
-  LogoutUrl:
+  DomainName:
     Type: String
 
 Resources:
@@ -49,14 +49,15 @@ Resources:
         - profile
       CallbackURLs:
         - !Sub
-          - 'https://${Alb01DomainName}/oauth2/idpresponse'
-          - Alb01DomainName: !ImportValue api-alb-domain-name
+          - 'https://${DomainName}/oauth2/idpresponse'
+          - Alb01DomainName: !ImportValue api-alb01-domain-name
       ClientName: !Sub rondeau-app-client-${AWS::AccountId}
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
+      GenerateSecret: true
       LogoutURLs:
-        - !Ref LogoutUrl
+        - !Sub 'https://${DomainName}'
       SupportedIdentityProviders:
         - COGNITO
       UserPoolId: !Ref UserPool
@@ -73,11 +74,15 @@ Outputs:
     Value: !Ref UserPool
     Export:
       Name: cognito-user-pool-id
+  UserPoolArn:
+    Value: !GetAtt UserPool.Arn
+    Export:
+      Name: cognito-user-pool-arn
   UserPoolClientId:
     Value: !Ref UserPoolClient
     Export:
       Name: cognito-user-pool-client-id
   UserPoolDomain:
-    Value: !Sub https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com
+    Value: !Ref UserPoolDomain
     Export:
       Name: cognito-user-pool-domain
