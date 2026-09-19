@@ -11,6 +11,9 @@ Parameters:
   LatestAmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
+  FckNatAmiId:
+    Type: String
+    Default: ami-037c5d82ae136c25d
 
 Resources:
   Vpc01:
@@ -60,6 +63,44 @@ Resources:
       RouteTableId: !Ref RouteTable01
       SubnetId: !Ref PublicSubnet02
 
+  PrivateSubnet01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 192.168.0.64/27
+      AvailabilityZone: !Select [0, !GetAZs '']
+      VpcId: !Ref Vpc01
+
+  PrivateSubnet02:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 192.168.0.96/27
+      AvailabilityZone: !Select [1, !GetAZs '']
+      VpcId: !Ref Vpc01
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc01
+
+  RouteFckNat:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NetworkInterfaceId: !Ref FckNatInterface
+
+  PrivateSubnet01RouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet01
+
+  PrivateSubnet02RouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet02
+
   InternetGateway01:
     Type: AWS::EC2::InternetGateway
     Properties:
@@ -72,6 +113,109 @@ Resources:
     Properties:
       InternetGatewayId: !Ref InternetGateway01
       VpcId: !Ref Vpc01
+
+  FckNatInterface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref PublicSubnet01
+      GroupSet:
+        - !GetAtt [FckNatSg, GroupId]
+      SourceDestCheck: false
+
+  FckNatInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref FckNatRole
+
+  FckNatLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    DependsOn: FckNatRole
+    Properties:
+      LaunchTemplateName: FckNatLaunchTemplate
+      LaunchTemplateData:
+        ImageId: !Ref FckNatAmiId
+        InstanceType: t4g.nano
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: true
+            Groups:
+              - !GetAtt [FckNatSg, GroupId]
+        IamInstanceProfile:
+          Name: !Ref FckNatInstanceProfile
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo "eni_id=${FckNatInterface}" >> /etc/fck-nat.conf
+            service fck-nat restart
+
+  FckNatAsg:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MaxSize: "1"
+      MinSize: "1"
+      DesiredCapacity: "1"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref FckNatLaunchTemplate
+        Version: !GetAtt FckNatLaunchTemplate.LatestVersionNumber
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet01
+      Tags:
+        - Key: Name
+          Value: fck-nat
+          PropagateAtLaunch: true
+    UpdatePolicy:
+      AutoScalingScheduledAction:
+        IgnoreUnmodifiedGroupSizeProperties: true
+
+  FckNatSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for FckNat
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref Sg01
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+        - SourceSecurityGroupId: !Ref Sg02
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic by default
+          IpProtocol: "-1"
+      VpcId: !Ref Vpc01
+      
+  FckNatRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+        Version: "2012-10-17"
+      Policies:
+        - PolicyName: AttachNatEniPolicy
+          PolicyDocument:
+            Statement:
+              - Action:
+                  - ec2:AttachNetworkInterface
+                  - ec2:ModifyNetworkInterfaceAttribute
+                Effect: Allow
+                Resource: "*"
+            Version: "2012-10-17"
+        - PolicyName: AssociateNatAddressPolicy
+          PolicyDocument:
+            Statement:
+              - Action:
+                  - ec2:AssociateAddress
+                  - ec2:DisassociateAddress
+                Effect: Allow
+                Resource: "*"
+            Version: "2012-10-17"
 
   Sg01:
     Type: AWS::EC2::SecurityGroup
@@ -96,8 +240,8 @@ Resources:
       SecurityGroups:
         - !Ref Sg01
       Subnets:
-        - !Ref PublicSubnet01
-        - !Ref PublicSubnet02
+        - !Ref PrivateSubnet01
+        - !Ref PrivateSubnet02
 
   Alb01ListenerApi:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -190,8 +334,8 @@ Resources:
       MaxSize: '1'
       MinSize: '1'
       VPCZoneIdentifier: 
-        - !Ref PublicSubnet01
-        - !Ref PublicSubnet02
+        - !Ref PrivateSubnet01
+        - !Ref PrivateSubnet02
       TargetGroupARNs:
         - !Ref ApiTargetGroup
       HealthCheckType: ELB
