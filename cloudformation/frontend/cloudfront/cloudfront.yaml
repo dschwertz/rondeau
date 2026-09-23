@@ -25,7 +25,7 @@ Resources:
     Type: AWS::CloudFront::VpcOrigin
     Properties:
       VpcOriginEndpointConfig:
-        Arn: !ImportValue api-alb01-arn
+        Arn: !ImportValue LoadBalancerApiArn
         Name: ApiAlb
 
   Distribution:

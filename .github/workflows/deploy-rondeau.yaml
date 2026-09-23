@@ -101,10 +101,9 @@ jobs:
 
       - name: Trigger instance refresh
         run: |
-          ASG_NAME=$(aws cloudformation describe-stack-resources \
+          ASG_NAME=$(aws cloudformation describe-stacks \
             --stack-name api-ec2 \
-            --logical-resource-id ApiAutoScalingGroup \
-            --query "StackResources[0].PhysicalResourceId" \
+            --query "Stacks[0].Outputs[?OutputKey=='AutoScalingGroupApiName'].OutputValue" \
             --output text)
 
           aws autoscaling start-instance-refresh \

@@ -11,13 +11,13 @@ Resources:
     Properties:
       Actions: 
         - Type: forward
-          TargetGroupArn: !ImportValue api-api-target-group-arn
+          TargetGroupArn: !ImportValue TargetGroupApiArn
       Conditions:
         - Field: path-pattern
           PathPatternConfig:
             Values:
               - !Sub '/${ApiStage}/api/*'
-      ListenerArn: !ImportValue api-alb01-listener-api-arn
+      ListenerArn: !ImportValue ListenerApiArn
       Priority: 10
 
   ListenerRuleProtected:
@@ -33,12 +33,12 @@ Resources:
             OnUnauthenticatedRequest: deny
         - Type: forward
           Order: 2
-          TargetGroupArn: !ImportValue api-api-target-group-arn
+          TargetGroupArn: !ImportValue TargetGroupApiArn
       Conditions:
         - Field: path-pattern
           PathPatternConfig:
             Values:
               - !Sub '/${ApiStage}/*'
-      ListenerArn: !ImportValue api-alb01-listener-api-arn
+      ListenerArn: !ImportValue ListenerApiArn
       Priority: 20
 

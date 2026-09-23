@@ -50,7 +50,7 @@ Resources:
       CallbackURLs:
         - !Sub
           - 'https://${DomainName}/oauth2/idpresponse'
-          - Alb01DomainName: !ImportValue api-alb01-domain-name
+          - Alb01DomainName: !ImportValue LoadBalancerApiDomainName
       ClientName: !Sub rondeau-app-client-${AWS::AccountId}
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH

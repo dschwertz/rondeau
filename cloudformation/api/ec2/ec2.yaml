@@ -22,162 +22,185 @@ Resources:
       CidrBlock: 192.168.0.0/24
       EnableDnsHostnames: true
 
-  RouteTable01:
-    Type: AWS::EC2::RouteTable
+  SecurityGroupLoadBalancerApi:
+    Type: AWS::EC2::SecurityGroup
     Properties:
+      GroupName: SecurityGroupLoadBalancerApi
+      GroupDescription: security group load balancer api
       VpcId: !Ref Vpc01
 
-  RouteInternetGateway:
-    Type: AWS::EC2::Route
-    DependsOn: Ig01Vpc01
+  IngressLoadBalancerApi:
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      RouteTableId: !Ref RouteTable01
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway01
+      Description: Allows traffic from CloudFront
+      GroupId: !Ref SecurityGroupLoadBalancerApi
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourcePrefixListId: pl-82a045eb
 
-  PublicSubnet01:
-    Type: AWS::EC2::Subnet
+  LoadBalancerApi:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      CidrBlock: 192.168.0.0/27
-      AvailabilityZone: !Select [0, !GetAZs '']
+      Name: LoadBalancerApi
+      Scheme: internal
+      SecurityGroups:
+        - !Ref SecurityGroupLoadBalancerApi
+      Subnets:
+        - !Ref SubnetPrivate01
+        - !Ref SubnetPrivate02
+
+  ListenerApi:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancerApi
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref ApiCertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupApi
+
+  SecurityGroupApi:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: SecurityGroupApi
+      GroupDescription: Allow traffic from LoadBalancerApi
       VpcId: !Ref Vpc01
-      MapPublicIpOnLaunch: true
 
-  Subnet01RouteTable01:
-    Type: AWS::EC2::SubnetRouteTableAssociation
+  IngressApi:
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      RouteTableId: !Ref RouteTable01
-      SubnetId: !Ref PublicSubnet01
+      Description: Allows traffic from LoadBalancerApi
+      GroupId: !Ref SecurityGroupApi
+      IpProtocol: tcp
+      FromPort: 3000
+      ToPort: 3000
+      SourceSecurityGroupId: !Ref SecurityGroupLoadBalancerApi
 
-  PublicSubnet02:
-    Type: AWS::EC2::Subnet
-    Properties:
-      CidrBlock: 192.168.0.32/27
-      AvailabilityZone: !Select [1, !GetAZs '']
-      VpcId: !Ref Vpc01
-      MapPublicIpOnLaunch: true
-
-  Subnet02RouteTable01:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref RouteTable01
-      SubnetId: !Ref PublicSubnet02
-
-  PrivateSubnet01:
+  SubnetPrivate01:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: 192.168.0.64/27
       AvailabilityZone: !Select [0, !GetAZs '']
       VpcId: !Ref Vpc01
 
-  PrivateSubnet02:
+  SubnetPrivate02:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: 192.168.0.96/27
       AvailabilityZone: !Select [1, !GetAZs '']
       VpcId: !Ref Vpc01
 
-  PrivateRouteTable:
+  AutoScalingGroupApi:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: AutoScalingGroupApi
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplateApi
+        Version: !GetAtt LaunchTemplateApi.LatestVersionNumber
+      MaxSize: '1'
+      MinSize: '1'
+      VPCZoneIdentifier: 
+        - !Ref SubnetPrivate01
+        - !Ref SubnetPrivate02
+      TargetGroupARNs:
+        - !Ref TargetGroupApi
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+
+  TargetGroupApi:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: TargetGroupApi
+      VpcId: !Ref Vpc01
+      Port: 3000
+      Protocol: HTTP
+      TargetType: instance
+      HealthCheckPath: /health
+
+  LaunchTemplateApi:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: LaunchTemplateApi
+      LaunchTemplateData:
+        InstanceType: t4g.nano
+        IamInstanceProfile:
+          Name: !Ref InstanceProfileApi
+        ImageId: !Ref LatestAmiId
+        SecurityGroupIds:
+          - !Ref SecurityGroupApi
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            dnf update -y
+            dnf install docker -y
+            systemctl enable --now docker
+
+            aws ecr get-login-password --region ${AWS::Region} | \
+              docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
+            
+            docker pull ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageRepositoryName}:api-${GitSha}
+            docker run -d --restart unless-stopped -p 3000:3000 \
+              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageRepositoryName}:api-${GitSha}
+
+  InstanceProfileApi:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: InstanceProfileApi
+      Roles:
+        - !Ref RoleApi
+
+  RoleApi:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: RoleApi
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly
+
+  RouteTablePrivate:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref Vpc01
 
-  RouteFckNat:
+  RouteTablePrivateAssociationPrivate01:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate
+      SubnetId: !Ref SubnetPrivate01
+
+  RouteTablePrivateAssociationPrivate02:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate
+      SubnetId: !Ref SubnetPrivate02
+
+  RouteFcknat:
     Type: AWS::EC2::Route
     Properties:
-      RouteTableId: !Ref PrivateRouteTable
+      RouteTableId: !Ref RouteTablePrivate
       DestinationCidrBlock: 0.0.0.0/0
-      NetworkInterfaceId: !Ref FckNatInterface
+      NetworkInterfaceId: !Ref NetworkInterfaceFcknat
 
-  PrivateSubnet01RouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      SubnetId: !Ref PrivateSubnet01
-
-  PrivateSubnet02RouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      SubnetId: !Ref PrivateSubnet02
-
-  InternetGateway01:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: CloudFront Required
-
-  Ig01Vpc01:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      InternetGatewayId: !Ref InternetGateway01
-      VpcId: !Ref Vpc01
-
-  FckNatInterface:
-    Type: AWS::EC2::NetworkInterface
-    Properties:
-      SubnetId: !Ref PublicSubnet01
-      GroupSet:
-        - !GetAtt [FckNatSg, GroupId]
-      SourceDestCheck: false
-
-  FckNatInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref FckNatRole
-
-  FckNatLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    DependsOn: FckNatRole
-    Properties:
-      LaunchTemplateName: FckNatLaunchTemplate
-      LaunchTemplateData:
-        ImageId: !Ref FckNatAmiId
-        InstanceType: t4g.nano
-        NetworkInterfaces:
-          - DeviceIndex: 0
-            AssociatePublicIpAddress: true
-            Groups:
-              - !GetAtt [FckNatSg, GroupId]
-        IamInstanceProfile:
-          Name: !Ref FckNatInstanceProfile
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            echo "eni_id=${FckNatInterface}" >> /etc/fck-nat.conf
-            service fck-nat restart
-
-  FckNatAsg:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      MaxSize: "1"
-      MinSize: "1"
-      DesiredCapacity: "1"
-      LaunchTemplate:
-        LaunchTemplateId: !Ref FckNatLaunchTemplate
-        Version: !GetAtt FckNatLaunchTemplate.LatestVersionNumber
-      VPCZoneIdentifier:
-        - !Ref PublicSubnet01
-      Tags:
-        - Key: Name
-          Value: fck-nat
-          PropagateAtLaunch: true
-    UpdatePolicy:
-      AutoScalingScheduledAction:
-        IgnoreUnmodifiedGroupSizeProperties: true
-
-  FckNatSg:
+  SecurityGroupFcknat:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group for FckNat
+      GroupName: SecurityGroupFcknat
+      GroupDescription: security group fcknat
       SecurityGroupIngress:
-        - SourceSecurityGroupId: !Ref Sg01
+        - SourceSecurityGroupId: !Ref SecurityGroupLoadBalancerApi
           IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-        - SourceSecurityGroupId: !Ref Sg02
+        - SourceSecurityGroupId: !Ref SecurityGroupApi
           IpProtocol: tcp
           FromPort: 443
           ToPort: 443
@@ -186,10 +209,76 @@ Resources:
           Description: Allow all outbound traffic by default
           IpProtocol: "-1"
       VpcId: !Ref Vpc01
+
+  SubnetPublic01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 192.168.0.0/27
+      AvailabilityZone: !Select [0, !GetAZs '']
+      VpcId: !Ref Vpc01
+      MapPublicIpOnLaunch: true
+
+  NetworkInterfaceFcknat:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: Interface for requests to fck-nat (internet gateway)
+      SubnetId: !Ref SubnetPublic01
+      GroupSet:
+        - !GetAtt [SecurityGroupFcknat, GroupId]
+      SourceDestCheck: false
+
+  AutoScalingGroupFcknat:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: AutoScalingGroupFcknat
+      MaxSize: "1"
+      MinSize: "1"
+      DesiredCapacity: "1"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplateFcknat
+        Version: !GetAtt LaunchTemplateFcknat.LatestVersionNumber
+      VPCZoneIdentifier:
+        - !Ref SubnetPublic01
+      Tags:
+        - Key: Name
+          Value: fck-nat
+          PropagateAtLaunch: true
+    UpdatePolicy:
+      AutoScalingScheduledAction:
+        IgnoreUnmodifiedGroupSizeProperties: true
+
+  LaunchTemplateFcknat:
+    Type: AWS::EC2::LaunchTemplate
+    DependsOn: RoleFcknat
+    Properties:
+      LaunchTemplateName: LaunchTemplateFcknat
+      LaunchTemplateData:
+        ImageId: !Ref FckNatAmiId
+        InstanceType: t4g.nano
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: true
+            Groups:
+              - !GetAtt [SecurityGroupFcknat, GroupId]
+        IamInstanceProfile:
+          Name: !Ref InstanceProfileFcknat
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo "eni_id=${NetworkInterfaceFcknat}" >> /etc/fck-nat.conf
+            service fck-nat restart
       
-  FckNatRole:
+  InstanceProfileFcknat:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: InstanceProfileFcknat
+      Roles:
+        - !Ref RoleFcknat
+
+  RoleFcknat:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: RoleFcknat
       AssumeRolePolicyDocument:
         Statement:
           - Action: sts:AssumeRole
@@ -217,144 +306,57 @@ Resources:
                 Resource: "*"
             Version: "2012-10-17"
 
-  Sg01:
-    Type: AWS::EC2::SecurityGroup
+  RouteTableMain:
+    Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref Vpc01
-      GroupDescription: ALB SG
 
-  Sg01InboundRule:
-    Type: AWS::EC2::SecurityGroupIngress
+  RouteTableMainAssociationPublic01:
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      Description: Allows traffic from CloudFront
-      GroupId: !Ref Sg01
-      IpProtocol: tcp
-      FromPort: 443
-      ToPort: 443
-      SourcePrefixListId: pl-82a045eb
+      RouteTableId: !Ref RouteTableMain
+      SubnetId: !Ref SubnetPublic01
 
-  Alb01:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  RouteInternetGateway:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachmentVpc01
     Properties:
-      Scheme: internal
-      SecurityGroups:
-        - !Ref Sg01
-      Subnets:
-        - !Ref PrivateSubnet01
-        - !Ref PrivateSubnet02
+      RouteTableId: !Ref RouteTableMain
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
 
-  Alb01ListenerApi:
-    Type: AWS::ElasticLoadBalancingV2::Listener
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
     Properties:
-      LoadBalancerArn: !Ref Alb01
-      Port: 443
-      Protocol: HTTPS
-      Certificates:
-        - CertificateArn: !Ref ApiCertificateArn
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ApiTargetGroup
+      Tags:
+        - Key: Name
+          Value: CloudFront required internet gateway
 
-  Sg02:
-    Type: AWS::EC2::SecurityGroup
+  InternetGatewayAttachmentVpc01:
+    Type: AWS::EC2::VPCGatewayAttachment
     Properties:
+      InternetGatewayId: !Ref InternetGateway
       VpcId: !Ref Vpc01
-      GroupDescription: App instance SG
 
-  Sg02InboundRule:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      Description: Allows traffic from ALB
-      GroupId: !Ref Sg02
-      IpProtocol: tcp
-      FromPort: 3000
-      ToPort: 3000
-      SourceSecurityGroupId: !Ref Sg01
-
-  ApiInstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly
-      RoleName: ApiInstanceRole
-
-  ApiInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      InstanceProfileName: ApiInstanceProfile
-      Roles:
-        - !Ref ApiInstanceRole
-
-  ApiLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateData:
-        InstanceType: t4g.nano
-        IamInstanceProfile:
-          Name: !Ref ApiInstanceProfile
-        ImageId: !Ref LatestAmiId
-        SecurityGroupIds:
-          - !Ref Sg02
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            dnf update -y
-            dnf install docker -y
-            systemctl enable --now docker
-
-            aws ecr get-login-password --region ${AWS::Region} | \
-              docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
-            
-            docker pull ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageRepositoryName}:api-${GitSha}
-            docker run -d --restart unless-stopped -p 3000:3000 \
-              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageRepositoryName}:api-${GitSha}
-
-  ApiTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      VpcId: !Ref Vpc01
-      Port: 3000
-      Protocol: HTTP
-      TargetType: instance
-      HealthCheckPath: /health
-
-  ApiAutoScalingGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      LaunchTemplate:
-        LaunchTemplateId: !Ref ApiLaunchTemplate
-        Version: !GetAtt ApiLaunchTemplate.LatestVersionNumber
-      MaxSize: '1'
-      MinSize: '1'
-      VPCZoneIdentifier: 
-        - !Ref PrivateSubnet01
-        - !Ref PrivateSubnet02
-      TargetGroupARNs:
-        - !Ref ApiTargetGroup
-      HealthCheckType: ELB
-      HealthCheckGracePeriod: 300
 
 Outputs:
-  Alb01Arn:
-    Value: !Ref Alb01
+  LoadBalancerApiArn:
+    Value: !Ref LoadBalancerApi
     Export:
-      Name: api-alb01-arn
-  Alb01DomainName:
-    Value: !GetAtt Alb01.DNSName
+      Name: LoadBalancerApiArn
+  LoadBalancerApiDomainName:
+    Value: !GetAtt LoadBalancerApi.DNSName
     Export:
-      Name: api-alb01-domain-name
-  Alb01ListenerApiArn:
-    Value: !Ref Alb01ListenerApi
+      Name: LoadBalancerApiDomainName
+  ListenerApiArn:
+    Value: !Ref ListenerApi
     Export:
-      Name: api-alb01-listener-api-arn
-  ApiTargetGroupArn:
-    Value: !Ref ApiTargetGroup
+      Name: ListenerApiArn
+  TargetGroupApiArn:
+    Value: !Ref TargetGroupApi
     Export:
-      Name: api-api-target-group-arn
+      Name: TargetGroupApiArn
+  AutoScalingGroupApiName:
+    Value: !Ref AutoScalingGroupApi
+    Export:
+      Name: AutoScalingGroupApiName
