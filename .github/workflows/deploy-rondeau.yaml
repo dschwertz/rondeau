@@ -16,20 +16,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6.0.2
 
-      - name: Set up Docker Compose
-        uses: docker/setup-compose-action@v2
-        with:
-          version: latest
-
-      - name: Verify Compose version
-        run: docker compose version
-
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v6.1.0
         with:
           audience: sts.amazonaws.com
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+
+      - name: Set up QEMU # Required for building linux/arm64 api image
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v2
+        with:
+          version: latest
 
       - name: Setup ECR repository
         run: |
@@ -49,14 +49,6 @@ jobs:
       - name: Compute shortend commit sha
         run: |
           echo "GIT_SHA=${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-
-      - name: Set up Docker Compose
-        uses: docker/setup-compose-action@v2
-        with:
-          version: latest
 
       - name: Build images
         env:
@@ -88,7 +80,7 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
 
-      - name: Setup VPC and subnets
+      - name: Setup API infrastructure
         run: |
           aws cloudformation deploy \
           --stack-name api-ec2 \
@@ -99,7 +91,7 @@ jobs:
             ImageRepositoryName=${{ vars.IMAGE_REPOSITORY_NAME }} \
             GitSha=${GITHUB_SHA:0:7}
 
-      - name: Trigger instance refresh
+      - name: Trigger API instance refresh # Ensures fresh image is used
         run: |
           ASG_NAME=$(aws cloudformation describe-stacks \
             --stack-name api-ec2 \
@@ -133,7 +125,7 @@ jobs:
           --parameter-overrides \
             DomainName=${{ vars.DOMAIN_NAME }}
 
-      - name: Add listener rules to ALB
+      - name: Add listener rules to load balancer
         run: |
           aws cloudformation deploy \
           --stack-name auth-listenerRule \
