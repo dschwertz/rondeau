@@ -11,8 +11,8 @@ Resources:
     Properties:
       Name: !Ref DomainName
       HostedZoneTags:
-        Key: Updated
-        Value: 12Apr2026
+        - Key: Updated
+          Value: 12Apr2026
 
 Outputs:
   HostedZoneId:
