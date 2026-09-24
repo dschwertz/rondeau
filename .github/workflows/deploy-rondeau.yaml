@@ -132,6 +132,7 @@ jobs:
           --template-file ./cloudformation/auth/listenerRule/listenerRule.yaml \
           --parameter-overrides \
             ApiStage=${{ vars.API_STAGE_NAME }} \
+            DomainName=${{ vars.DOMAIN_NAME }}
 
   deploy-frontend:
     needs: deploy-api

@@ -48,9 +48,7 @@ Resources:
         - openid
         - profile
       CallbackURLs:
-        - !Sub
-          - 'https://${DomainName}/oauth2/idpresponse'
-          - Alb01DomainName: !ImportValue LoadBalancerApiDomainName
+        - !Sub 'https://${DomainName}/oauth2/idpresponse'
       ClientName: !Sub rondeau-app-client-${AWS::AccountId}
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
