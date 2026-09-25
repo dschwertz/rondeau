@@ -67,6 +67,29 @@ Resources:
       ManagedLoginVersion: 2
       UserPoolId: !Ref UserPool
 
+  ParameterUserPoolDomain:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /api/cognito/domain
+      Type: String
+      Value: !Sub
+        - '${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'
+        - UserPoolDomain: !Ref UserPoolDomain
+
+  ParameterUserPoolClientId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /api/cognito/client-id
+      Type: String
+      Value: !Ref UserPoolClient
+
+  ParameterLogoutUri:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /api/cognito/logout-uri
+      Type: String
+      Value: !Sub 'https://${DomainName}'
+
 Outputs:
   UserPoolId:
     Value: !Ref UserPool
@@ -84,3 +107,7 @@ Outputs:
     Value: !Ref UserPoolDomain
     Export:
       Name: cognito-user-pool-domain
+  LogoutUri:
+    Value: !Sub 'https://${DomainName}'
+    Export:
+      Name: cognito-logout-uri

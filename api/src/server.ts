@@ -16,7 +16,28 @@ app.get('/health', (_, res: Response) => {
 // to redirect an unauthenticated request to the idp. Every other request must
 // include the authentication or it will not be routed past the load balancer.
 app.get(`/${versionId}/login`, (_, res: Response) => {
-  res.status(200).send('Login Successful.')
+  res.redirect('/')
+})
+
+// Clears any tokens before forwarding to cognito to complete logout flow.
+app.get(`/${versionId}/logout`, (_, res: Response) => {
+  const cookieNames = [
+    'AWSELBAuthSessionCookie-0',
+    'AWSELBAuthSessionCookie-1',
+    'AWSELBAuthSessionCookie-2',
+    'AWSELBAuthSessionCookie-3',
+  ]
+  cookieNames.forEach(name => {
+    res.clearCookie(name, { path: '/', secure: true, httpOnly: true })
+  })
+
+  const cognitoDomain = process.env.COGNITO_DOMAIN
+  const clientId = process.env.COGNITO_CLIENT_ID
+  const logoutUri = process.env.LOGOUT_URI || ""
+
+  res.redirect(
+    `https://${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`
+  )
 })
 
 app.get(`/${versionId}/status`, (_, res: Response) => {

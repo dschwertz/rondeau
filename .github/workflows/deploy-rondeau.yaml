@@ -9,6 +9,42 @@ permissions:
   contents: read    # This is required for actions/checkout
 jobs:
 
+  deploy-frontend:
+    runs-on: ubuntu-26.04
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.0
+        with:
+          audience: sts.amazonaws.com
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Setup S3 bucket
+        run: |
+          aws cloudformation deploy \
+          --stack-name frontend-s3 \
+          --template-file ./cloudformation/frontend/s3/s3.yaml \
+          --parameter-overrides \
+            FrontendAssetsBucketName=${{ vars.FRONTEND_ASSETS_BUCKET_NAME }}
+
+      - name: Sync frontend assets to S3
+        working-directory: ./webapp
+        run: |
+          npm ci
+
+          npm run build
+
+          aws s3 sync ./dist s3://${{ vars.FRONTEND_ASSETS_BUCKET_NAME }} --delete
+
   deploy-images:
     runs-on: ubuntu-26.04
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
@@ -64,46 +100,7 @@ jobs:
         run: |
           docker compose push
 
-  deploy-api:
-    needs:
-      - deploy-images
-    runs-on: ubuntu-26.04
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.2
-
-      - name: Configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v6.1.0
-        with:
-          audience: sts.amazonaws.com
-          aws-region: ${{ vars.AWS_REGION }}
-          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
-
-      - name: Setup API infrastructure
-        run: |
-          aws cloudformation deploy \
-          --stack-name api-ec2 \
-          --template-file ./cloudformation/api/ec2/ec2.yaml \
-          --capabilities CAPABILITY_NAMED_IAM \
-          --parameter-overrides \
-            ApiCertificateArn=${{ vars.API_CERTIFICATE_ARN }} \
-            ImageRepositoryName=${{ vars.IMAGE_REPOSITORY_NAME }} \
-            GitSha=${GITHUB_SHA:0:7}
-
-      - name: Trigger API instance refresh # Ensures fresh image is used
-        run: |
-          ASG_NAME=$(aws cloudformation describe-stacks \
-            --stack-name api-ec2 \
-            --query "Stacks[0].Outputs[?OutputKey=='AutoScalingGroupApiName'].OutputValue" \
-            --output text)
-
-          aws autoscaling start-instance-refresh \
-            --auto-scaling-group-name "$ASG_NAME"
-
   deploy-auth:
-    needs:
-      - deploy-api
     runs-on: ubuntu-26.04
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
@@ -125,17 +122,10 @@ jobs:
           --parameter-overrides \
             DomainName=${{ vars.DOMAIN_NAME }}
 
-      - name: Add listener rules to load balancer
-        run: |
-          aws cloudformation deploy \
-          --stack-name auth-listenerRule \
-          --template-file ./cloudformation/auth/listenerRule/listenerRule.yaml \
-          --parameter-overrides \
-            ApiStage=${{ vars.API_STAGE_NAME }} \
-            DomainName=${{ vars.DOMAIN_NAME }}
-
-  deploy-frontend:
-    needs: deploy-api
+  deploy-api:
+    needs:
+      - deploy-images
+      - deploy-auth
     runs-on: ubuntu-26.04
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
     steps:
@@ -149,40 +139,44 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - name: Setup S3 bucket
+      - name: Setup API infrastructure
         run: |
           aws cloudformation deploy \
-          --stack-name frontend-s3 \
-          --template-file ./cloudformation/frontend/s3/s3.yaml \
+          --stack-name api-ec2 \
+          --template-file ./cloudformation/api/ec2/ec2.yaml \
+          --capabilities CAPABILITY_NAMED_IAM \
           --parameter-overrides \
-            FrontendAssetsBucketName=${{ vars.FRONTEND_ASSETS_BUCKET_NAME }}
+            ApiCertificateArn=${{ vars.API_CERTIFICATE_ARN }} \
+            ApiStage=${{ vars.API_STAGE_NAME }} \
+            ImageRepositoryName=${{ vars.IMAGE_REPOSITORY_NAME }} \
+            GitSha=${GITHUB_SHA:0:7}
 
-      - name: Sync frontend assets to S3
-        working-directory: ./webapp
+      - name: Trigger API instance refresh # Ensures fresh image is used
         run: |
-          export VITE_COGNITO_CLIENT_ID=$(aws cloudformation describe-stacks \
-            --stack-name auth-cognito \
-            --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" \
+          ASG_NAME=$(aws cloudformation describe-stacks \
+            --stack-name api-ec2 \
+            --query "Stacks[0].Outputs[?OutputKey=='AutoScalingGroupApiName'].OutputValue" \
             --output text)
 
-          export VITE_COGNITO_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name auth-cognito \
-            --query "Stacks[0].Outputs[?OutputKey=='UserPoolDomain'].OutputValue" \
-            --output text)
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$ASG_NAME"
 
-          export VITE_COGNITO_REDIRECT_URI=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/callback
-          export VITE_COGNITO_LOGOUT_URI=https://${{ vars.DOMAIN_NAME }}/${{ vars.API_STAGE_NAME }}/auth/logout
+  deploy-cdn:
+    needs:
+      - deploy-frontend
+      - deploy-api
+    runs-on: ubuntu-26.04
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
 
-          npm ci
-
-          npm run build
-
-          aws s3 sync ./dist s3://${{ vars.FRONTEND_ASSETS_BUCKET_NAME }} --delete
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.0
+        with:
+          audience: sts.amazonaws.com
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
 
       - name: Setup Hosted Zone
         run: |

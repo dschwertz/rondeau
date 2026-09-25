@@ -4,6 +4,8 @@ Description: EC2 service
 Parameters:
   ApiCertificateArn:
     Type: String
+  ApiStage:
+    Type: String
   ImageRepositoryName:
     Type: String
   GitSha:
@@ -61,6 +63,64 @@ Resources:
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref TargetGroupApi
+
+  ListenerRuleLogout:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !ImportValue TargetGroupApiArn
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - !Sub '/${ApiStage}/logout'
+      ListenerArn: !ImportValue ListenerApiArn
+      Priority: 1
+
+  ListenerRuleLogin:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions: 
+        - Type: authenticate-cognito
+          Order: 1
+          AuthenticateCognitoConfig:
+            UserPoolArn: !ImportValue cognito-user-pool-arn
+            UserPoolClientId: !ImportValue cognito-user-pool-client-id
+            UserPoolDomain: !ImportValue cognito-user-pool-domain
+            OnUnauthenticatedRequest: authenticate
+        - Type: forward
+          Order: 2
+          TargetGroupArn: !ImportValue TargetGroupApiArn
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - !Sub '/${ApiStage}/login'
+      ListenerArn: !ImportValue ListenerApiArn
+      Priority: 2
+
+  ListenerRuleProtected:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions: 
+        - Type: authenticate-cognito
+          Order: 1
+          AuthenticateCognitoConfig:
+            UserPoolArn: !ImportValue cognito-user-pool-arn
+            UserPoolClientId: !ImportValue cognito-user-pool-client-id
+            UserPoolDomain: !ImportValue cognito-user-pool-domain
+            OnUnauthenticatedRequest: deny
+        - Type: forward
+          Order: 2
+          TargetGroupArn: !ImportValue TargetGroupApiArn
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - !Sub '/${ApiStage}/*'
+      ListenerArn: !ImportValue ListenerApiArn
+      Priority: 30
 
   SecurityGroupApi:
     Type: AWS::EC2::SecurityGroup
@@ -142,7 +202,32 @@ Resources:
               docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
             
             docker pull ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageRepositoryName}:api-${GitSha}
+
+            COGNITO_DOMAIN=$( \
+              aws ssm get-parameter \
+              --name /api/cognito/domain \
+              --query Parameter.Value \
+              --output text \
+              --region ${AWS::Region}\
+            )
+            COGNITO_CLIENT_ID=$( \
+              aws ssm get-parameter \
+              --name /api/cognito/client-id \
+              --query Parameter.Value \
+              --output text \
+              --region ${AWS::Region}\
+            )
+            LOGOUT_URI=$(aws ssm get-parameter \
+              --name /api/cognito/logout-uri \
+              --query Parameter.Value \
+              --output text \
+              --region ${AWS::Region}\
+            )
+
             docker run -d --restart unless-stopped -p 3000:3000 \
+              -e COGNITO_DOMAIN="$COGNITO_DOMAIN" \
+              -e COGNITO_CLIENT_ID="$COGNITO_CLIENT_ID" \
+              -e LOGOUT_URI="$LOGOUT_URI" \
               ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageRepositoryName}:api-${GitSha}
 
   InstanceProfileApi:
@@ -165,6 +250,14 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly
+      Policies:
+        - PolicyName: ReadCognitoConfig
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/api/cognito/*'
 
   RouteTablePrivate:
     Type: AWS::EC2::RouteTable
